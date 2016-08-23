@@ -1,7 +1,7 @@
 import logging
 import json
 
-from easydb.etl.repository.base import *
+from easydb.repository.base import *
 from easydb.tool.json import *
 
 def get_current_schema(ezapi):

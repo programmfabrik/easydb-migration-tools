@@ -7,13 +7,11 @@ import logging
 import os
 import json
 
-from easydb.etl.common import *
-from easydb.server.datamodel import get_current_schema, EasydbSchema, load_schema_languages
-from easydb.etl.repository.base import *
-from easydb.etl.destination import Destination
-from easydb.etl.source import Source
+import easydb.server.datamodel
+import easydb.migration.transform.destination
+import easydb.migration.transform.source
 
-logger = logging.getLogger('easydb.etl.prepare')
+logger = logging.getLogger('easydb.migration.transform.prepare')
 
 # public
 
@@ -27,7 +25,7 @@ def prepare(easydb_api, destination_directory, source_directory, create_policy, 
     logger.debug('using easydb: {0}'.format(easydb_api))
     logger.debug('using destination directory: {0}'.format(destination_directory))
     destination_schema = DestinationSchema(easydb_api, destination_directory)
-    destination = Destination(destination_directory, destination_schema)
+    destination = easydb.migration.transform.destination.Destination(destination_directory, destination_schema)
     if not destination.exists() and create_policy == CreatePolicy.Never:
         raise Exception('destination does not exist')
     if not destination.exists() or create_policy == CreatePolicy.Always:
@@ -36,7 +34,7 @@ def prepare(easydb_api, destination_directory, source_directory, create_policy, 
         for table_def in user_tables:
             destination.create_user_table(table_def)
     logger.info('end')
-    source = Source(source_directory)
+    source = easydb.migration.transform.source.Source(source_directory)
     return destination, source
 
 # private
@@ -49,11 +47,11 @@ class DestinationSchema(object):
         if os.path.isfile(schema_file):
             logger.info('load schema from file')
             with open(schema_file, 'r') as f:
-                self.ez_schema = EasydbSchema.parse(json.load(f))
+                self.ez_schema = easydb.server.datamodel.EasydbSchema.parse(json.load(f))
         else:
             logger.info('load schema from easydb')
-            schema_js = get_current_schema(ezapi)
-            self.ez_schema = EasydbSchema.parse(schema_js)
+            schema_js = easydb.server.datamodel.get_current_schema(ezapi)
+            self.ez_schema = easydb.server.datamodel.EasydbSchema.parse(schema_js)
             with open(schema_file, 'w') as f:
                 json.dump(schema_js, f, indent=4)
         if os.path.isfile(l10n_file):
@@ -62,10 +60,10 @@ class DestinationSchema(object):
                 self.ez_languages = json.load(f)
         else:
             logger.info('load languages from easydb')
-            self.ez_languages = load_schema_languages(ezapi)
+            self.ez_languages = easydb.server.datamodel.load_schema_languages(ezapi)
             with open(l10n_file, 'w') as f:
                 json.dump(self.ez_languages, f, indent=4)
-        self.db_schema = SchemaDefinition('destination')
+        self.db_schema = easydb.server.datamodel.SchemaDefinition('destination')
         self.ez_to_db = {}
         self._create_common_tables()
         self._load_objecttypes()
@@ -93,7 +91,7 @@ class DestinationSchema(object):
 
     def _create_dependencies(self):
         logger.debug('create dependencies table')
-        table_def = TableDefinition('dependencies')
+        table_def = easydb.server.datamodel.TableDefinition('dependencies')
         self._add_column(table_def, 'parent_table', 'text')
         self._add_column(table_def, 'parent_id', 'text')
         self._add_column(table_def, 'child_table', 'text')
@@ -155,7 +153,7 @@ class DestinationSchema(object):
         self._add_column(table_def, 'displaytype', 'text')
         self._add_l10n_columns(table_def, 'displayname')
         self._add_column(table_def, 'group', 'text')
-        table_def.constraints.append(ForeignKeyConstraintDefinition(['group'], 'easydb.ez_tag_group', ['__source_unique_id']))
+        table_def.constraints.append(easydb.server.datamodel.ForeignKeyConstraintDefinition(['group'], 'easydb.ez_tag_group', ['__source_unique_id']))
         self.db_schema.tables.append(table_def)
 
     def _load_objecttypes(self):
@@ -173,10 +171,10 @@ class DestinationSchema(object):
             self._add_column(table_def, '__pool_id', 'text')
         if ot.is_hierarchical:
             self._add_column(table_def, '__parent_id', 'text')
-            table_def.constraints.append(ForeignKeyConstraintDefinition(['__parent_id'], ot.name, ['__source_unique_id'], True))
+            table_def.constraints.append(easydb.server.datamodel.ForeignKeyConstraintDefinition(['__parent_id'], ot.name, ['__source_unique_id'], True))
         if ot.owned_by is not None:
             self._add_column(table_def, '__uplink_id', 'text')
-            table_def.constraints.append(ForeignKeyConstraintDefinition(['__uplink_id'], ot.owned_by, ['__source_unique_id'], True))
+            table_def.constraints.append(easydb.server.datamodel.ForeignKeyConstraintDefinition(['__uplink_id'], ot.owned_by, ['__source_unique_id'], True))
         if ot.has_tags:
             self.db_schema.tables.append(self._tag_table(ot.name))
 
@@ -184,7 +182,7 @@ class DestinationSchema(object):
             self._load_column(table_def, ot, ez_column)
 
         for c in table_def.constraints:
-            if isinstance(c, ForeignKeyConstraintDefinition):
+            if isinstance(c, easydb.server.datamodel.ForeignKeyConstraintDefinition):
                 c.ref_objecttype = c.ref_table_name
                 c.ref_table_name = self._easydb_table_name(c.ref_table_name)
 
@@ -199,38 +197,39 @@ class DestinationSchema(object):
                 self._add_column(table_def, ez_column.name, ez_column.column_type)
 
     def _asset_table(self, ot_name, column_name):
-        table_def = TableDefinition('asset.{0}.{1}'.format(ot_name, column_name))
-        column_def = ColumnDefinition('__source_unique_id')
+        table_def = easydb.server.datamodel.TableDefinition('asset.{0}.{1}'.format(ot_name, column_name))
+        column_def = easydb.server.datamodel.ColumnDefinition('__source_unique_id')
         column_def.type = 'text'
         column_def.pk = True
         table_def.columns.append(column_def)
+        self._add_column(table_def, '__version', 'integer')
         self._add_column(table_def, '__eas_id', 'integer')
         self._add_column(table_def, 'object_id', 'text')
         self._add_column(table_def, 'preferred', 'integer')
         self._add_column(table_def, 'original_filename', 'text')
         self._add_column(table_def, 'source_type', 'text')
         self._add_column(table_def, 'source', 'text')
-        fk = ForeignKeyConstraintDefinition(['object_id'], self._easydb_table_name(ot_name), ['__source_unique_id'])
+        fk = easydb.server.datamodel.ForeignKeyConstraintDefinition(['object_id'], self._easydb_table_name(ot_name), ['__source_unique_id'])
         table_def.constraints = [fk]
         return table_def
 
     def _tag_table(self, ot_name):
-        table_def = TableDefinition('tag.{0}'.format(ot_name))
-        column_def = ColumnDefinition('__source_unique_id')
+        table_def = easydb.server.datamodel.TableDefinition('tag.{0}'.format(ot_name))
+        column_def = easydb.server.datamodel.ColumnDefinition('__source_unique_id')
         column_def.type = 'text'
         column_def.pk = True
         table_def.columns.append(column_def)
         self._add_column(table_def, '__version', 'integer')
         self._add_column(table_def, 'object_id', 'text')
         self._add_column(table_def, 'tag_id', 'text')
-        fk1 = ForeignKeyConstraintDefinition(['object_id'], self._easydb_table_name(ot_name), ['__source_unique_id'])
-        fk2 = ForeignKeyConstraintDefinition(['tag_id'], 'easydb.ez_tag', ['__source_unique_id'])
+        fk1 = easydb.server.datamodel.ForeignKeyConstraintDefinition(['object_id'], self._easydb_table_name(ot_name), ['__source_unique_id'])
+        fk2 = easydb.server.datamodel.ForeignKeyConstraintDefinition(['tag_id'], 'easydb.ez_tag', ['__source_unique_id'])
         table_def.constraints = [fk1, fk2]
         return table_def
 
     def _easydb_table(self, name):
-        table_def = TableDefinition(self._easydb_table_name(name))
-        column_def = ColumnDefinition('__source_unique_id')
+        table_def = easydb.server.datamodel.TableDefinition(self._easydb_table_name(name))
+        column_def = easydb.server.datamodel.ColumnDefinition('__source_unique_id')
         column_def.type = 'text'
         column_def.pk = True
         table_def.columns.append(column_def)
@@ -247,6 +246,6 @@ class DestinationSchema(object):
             self._add_column(table_def, '{0}:{1}'.format(name, language), 'text')
 
     def _add_column(self, table_def, name, ctype):
-        column_def = ColumnDefinition(name)
+        column_def = easydb.server.datamodel.ColumnDefinition(name)
         column_def.type = ctype
         table_def.columns.append(column_def)

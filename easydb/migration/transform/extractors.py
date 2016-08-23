@@ -3,9 +3,9 @@ __all__ = [
     'ExtractSQL'
 ]
 
-from easydb.etl.extract import Extractor
+import easydb.migration.transform.extract
 
-class ExtractList(Extractor):
+class ExtractList(easydb.migration.transform.extract.Extractor):
     def __init__(self, rows, name='ExtractList'):
         self.rows = rows
         self.name = name
@@ -14,7 +14,7 @@ class ExtractList(Extractor):
     def __str__(self):
         return self.name
 
-class ExtractSQL(object):
+class ExtractSQL(easydb.migration.transform.extract.Extractor):
     def __init__(
         self,
         source,

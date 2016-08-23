@@ -10,11 +10,10 @@ import abc
 import json
 import sqlite3
 
-from easydb.etl.common import *
-from easydb.etl.repository.base import ExecutionError
-from easydb.tool.batch import *
+import easydb.migration.transform.common
+import easydb.tool.batch
 
-logger = logging.getLogger('easydb.etl.extract')
+logger = logging.getLogger('easydb.migration.transform.extract')
 asset_types = ['data', 'filename', 'url']
 
 # public
@@ -76,7 +75,7 @@ def extract(
         db.execute('PRAGMA defer_foreign_keys = true');
     try:
         process(db, source, destination, extractor, destination_table, row_transformations, asset_columns, batch_size, stop_on_error)
-    except ETLStop:
+    except easydb.migration.transform.common.MigrationStop:
         success = False
     try:
         db.close()
@@ -89,7 +88,7 @@ def extract(
     if manage_source:
         source.close()
     if not success:
-        raise ETLStop()
+        raise easydb.migration.transform.common.MigrationStop()
 
 # private
 
@@ -97,7 +96,7 @@ def process(db, source, destination, extractor, destination_table, row_transform
     p = '[{0}]'.format(extractor)
     logger.info('{0} begin'.format(p))
     rows = extractor.extract()
-    job = BatchedJob(BatchMode.Dictionary, batch_size, process_batch, db, source, destination_table, asset_columns, stop_on_error, p)
+    job = easydb.tool.batch.BatchedJob(easydb.tool.batch.BatchMode.Dictionary, batch_size, process_batch, db, source, destination_table, asset_columns, stop_on_error, p)
     success = True
     try:
         for row in rows:
@@ -118,7 +117,7 @@ def process(db, source, destination, extractor, destination_table, row_transform
                 if '__source_unique_id' not in r:
                     logger.error('{0} row does not contain "__source_unique_id"'.format(pb))
                     if stop_on_error:
-                        raise ETLStop()
+                        raise easydb.migration.transform.common.MigrationStop()
                     else:
                         continue
                 if '__version' not in r:
@@ -126,12 +125,12 @@ def process(db, source, destination, extractor, destination_table, row_transform
                 source_id = str(r['__source_unique_id'])
                 job.add(r, source_id)
         job.finish()
-    except ETLStop:
+    except easydb.migration.transform.common.MigrationStop:
         success = False
     del(rows)
     logger.info('{0} end'.format(p))
     if not success:
-        raise ETLStop()
+        raise easydb.migration.transform.common.MigrationStop()
 
 def process_batch(batch, db, source, destination_table, asset_columns, stop_on_error, p):
     source_ids = batch.keys()
@@ -151,7 +150,7 @@ def process_batch(batch, db, source, destination_table, asset_columns, stop_on_e
         elif old_version > new_version:
             logger.error('{} old_version ({}) > new_version ({})'.format(suid, old_version, new_version))
             if stop_on_error:
-                raise ETLStop()
+                raise easydb.migration.transform.common.MigrationStop()
             else:
                 del batch[suid]
         update_ids.add(suid)
@@ -175,15 +174,15 @@ def process_batch(batch, db, source, destination_table, asset_columns, stop_on_e
             except ExecutionError as e:
                 logger.error('error when inserting/updating row to {0}:\n{1}\n{2}'.format(destination_table, json.dumps(row, indent=4), e))
                 if stop_on_error:
-                    raise ETLStop()
+                    raise easydb.migration.transform.common.MigrationStop()
             except Exception as e:
                 logger.error(e)
                 if stop_on_error:
-                    raise ETLStop()
-    except ETLStop:
+                    raise easydb.migration.transform.common.MigrationStop()
+    except easydb.migration.transform.common.MigrationStop:
         success = False
     if not success:
-        raise ETLStop()
+        raise easydb.migration.transform.common.MigrationStop()
 
 def process_assets(db, source, asset_column, file_table_id, source_id, stop_on_error):
     try:

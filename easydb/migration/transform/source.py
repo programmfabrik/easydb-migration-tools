@@ -1,8 +1,8 @@
 import logging
 import re
 
-from easydb.etl.repository.base import quote_name, TableNotFoundError
-from easydb.etl.repository.sqlite import SQLiteRepository
+import easydb.repository.base
+import easydb.repository.sqlite
 
 class StatementReplacementError(Exception):
     def __init__(self, error_str):
@@ -22,7 +22,7 @@ class Source(object):
         self.directory = directory
         self.filename = '{0}/source.db'.format(self.directory)
         self.asset_dir = '{0}/assets'.format(self.directory)
-        self.logger = logging.getLogger('easydb.etl.source')
+        self.logger = logging.getLogger('easydb.migration.transform.source')
         self.db = None
 
     def __del__(self):
@@ -30,7 +30,7 @@ class Source(object):
             self.close()
 
     def open(self):
-        self.db = SQLiteRepository('source', self.filename)
+        self.db = easydb.repository.sqlite.SQLiteRepository('source', self.filename)
         self.logger.info('open repository: {0}'.format(self.db))
         self.db.open()
         self.logger.info('extract metadata')
@@ -74,14 +74,14 @@ class Source(object):
         if table_name in self.table_map:
             name = self.table_map[table_name]
             if quoted:
-                name = quote_name(name)
+                name = easydb.repository.base.quote_name(name)
             return name
         else:
             raise StatementReplacementError('table "{0}" not found'.format(table_name))
 
     def replace_column_name(self, column_name):
         # TODO
-        return quote_name(column_name)
+        return easydb.repository.base.quote_name(column_name)
 
 class Metadata(object):
 
@@ -93,14 +93,14 @@ class Metadata(object):
 
     @staticmethod
     def extract(repository):
-        logger = logging.getLogger('easydb.etl.source.metadata')
+        logger = logging.getLogger('easydb.migration.transform.source.metadata')
         schema_def = repository.get_schema_def()
         logger.info('extract from schema {0}'.format(schema_def.name))
         md = Metadata()
         try:
             for row in repository.extract_table('origin'):
                 md.origins.append(Origin(row, schema_def))
-        except TableNotFoundError:
+        except easydb.repository.base.TableNotFoundError:
             logger.error('table origin not found')
             raise Exception('extract metadata failed')
         except KeyError as e:

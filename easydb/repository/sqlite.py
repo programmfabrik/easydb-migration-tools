@@ -2,7 +2,7 @@ import logging
 import sqlite3
 from contextlib import closing
 
-from easydb.etl.repository.base import *
+from easydb.repository.base import *
 
 class SQLiteRepository(Repository):
 
@@ -11,7 +11,7 @@ class SQLiteRepository(Repository):
         self.filename = filename
         self.schema_def = None
         self.connected = False
-        self.logger = logging.getLogger('easydb.etl.repository.sqlite')
+        self.logger = logging.getLogger('easydb.repository.sqlite')
 
     def open(self):
         self.logger.debug('open')

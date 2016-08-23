@@ -1,7 +1,7 @@
 import os
 import logging
 
-from easydb.etl.repository.sqlite import SQLiteRepository
+import easydb.repository.sqlite
 
 class Destination(object):
 
@@ -35,7 +35,7 @@ class Destination(object):
         db.close()
 
     def get_db(self):
-        return SQLiteRepository('destination', self.filename)
+        return easydb.repository.sqlite.SQLiteRepository('destination', self.filename)
 
     def get_ez_schema(self):
         return self.schema.get_ez_schema()
@@ -62,7 +62,7 @@ class Destination(object):
         return False
 
     # def prepare_dependencies(self):
-    #     db = SQLiteRepository('destination', self.filename)
+    #     db = easydb.repository.sqlite.SQLiteRepository('destination', self.filename)
     #     db.open()
     #     db.execute('delete from dependencies')
     #     db.execute('vacuum')

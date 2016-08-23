@@ -1,25 +1,24 @@
 __all__ = [
-    'ETLJob',
+    'TransformJob',
 ]
 
 import logging
 import time
 import argparse
 
-from easydb.etl.common import *
-from easydb.etl.prepare import *
-from easydb.etl.extract import *
-from easydb.etl.load import *
-from easydb.etl.extractors import *
-from easydb.server.api import *
+import easydb.server.api
+import easydb.migration.transform.prepare
+import easydb.migration.transform.extractors
+import easydb.migration.transform.common
+import easydb.migration.transform.extract
 
-logger = logging.getLogger('easydb.etl.job')
+logger = logging.getLogger('easydb.migration.transform.job')
 
-class ETLJob(object):
+class TransformJob(object):
 
-    def __init__(self, easydb_url, login, password, eas_url, eas_instance, source_dir, destination_dir, create_policy, http_auth=None, exit_on_error=True, *args, **kwargs):
+    def __init__(self, easydb_url, login, password, eas_url, eas_instance, source_dir, destination_dir, create_policy, exit_on_error=True, *args, **kwargs):
         self.exit_on_error = exit_on_error
-        self.easydb_api = EasydbAPI(easydb_url, http_auth)
+        self.easydb_api = easydb.server.api.EasydbAPI(easydb_url)
         self.easydb_api.authenticate(login, password)
         self.eas_url = eas_url
         self.eas_instance = eas_instance
@@ -35,30 +34,30 @@ class ETLJob(object):
         if stop_on_error is None:
             stop_on_error = self.exit_on_error
         try:
-            extract(self.source, self.destination, extractor, destination_table, row_transformations, asset_columns, batch_size, stop_on_error, defer_foreign_keys)
-        except ETLStop:
+            easydb.migration.transform.extract.extract(self.source, self.destination, extractor, destination_table, row_transformations, asset_columns, batch_size, stop_on_error, defer_foreign_keys)
+        except easydb.migration.transform.common.MigrationStop:
             if self.exit_on_error:
                 exit(1)
         end = time.time()
         self.log_time('extract - {0}'.format(extractor), start, end)
 
     def extract_list(self, rows, destination_table, *args, **kwargs):
-        self.extract(ExtractList(rows, destination_table), destination_table, *args, **kwargs)
+        self.extract(easydb.migration.transform.extractors.ExtractList(rows, destination_table), destination_table, *args, **kwargs)
 
     def extract_sql(self, sql, destination_table, *args, **kwargs):
-        self.extract(ExtractSQL(self.source, sql, destination_table), destination_table, *args, **kwargs)
+        self.extract(easydb.migration.transform.extractors.ExtractSQL(self.source, sql, destination_table), destination_table, *args, **kwargs)
 
-    def load(self, objecttypes=None, batch_size=1000, search_assets=True, stop_on_error=None, custom_nested_loaders={}):
-        start = time.time()
-        if stop_on_error is None:
-            stop_on_error = self.exit_on_error
-        try:
-            load(self.source, self.destination, self.easydb_api, self.eas_url, self.eas_instance, objecttypes, custom_nested_loaders, batch_size, stop_on_error, search_assets)
-        except ETLStop:
-            if self.exit_on_error:
-                exit(1)
-        end = time.time()
-        self.log_time('load', start, end)
+    # def load(self, objecttypes=None, batch_size=1000, search_assets=True, stop_on_error=None, custom_nested_loaders={}):
+    #     start = time.time()
+    #     if stop_on_error is None:
+    #         stop_on_error = self.exit_on_error
+    #     try:
+    #         load(self.source, self.destination, self.easydb_api, self.eas_url, self.eas_instance, objecttypes, custom_nested_loaders, batch_size, stop_on_error, search_assets)
+    #     except ETLStop:
+    #         if self.exit_on_error:
+    #             exit(1)
+    #     end = time.time()
+    #     self.log_time('load', start, end)
 
     def log_times(self):
         logger.info('[time] summary')
@@ -74,15 +73,14 @@ class ETLJob(object):
         self.time_info.append((what, time_ms))
 
     @staticmethod
-    def start_job(create_policy, *args, **kwargs):
-        argparser = ETLJob.get_argparser()
+    def start_job(job_name, create_policy, *args, **kwargs):
+        argparser = TransformJob.get_argparser(job_name)
         a = argparser.parse_args()
-        return ETLJob(a.url, a.login, a.password, a.eas_url, a.eas_instance, a.source, a.destination, create_policy, *args, **kwargs)
+        return TransformJob(a.url, a.login, a.password, a.eas_url, a.eas_instance, a.source, a.destination, create_policy, *args, **kwargs)
 
     @staticmethod
-    def get_argparser():
-        argparser = argparse.ArgumentParser(description='Run migration script')
-        argparser.add_argument('script',       help='migration script')
+    def get_argparser(job_name):
+        argparser = argparse.ArgumentParser(description=job_name)
         argparser.add_argument('url',          help='easydb URL')
         argparser.add_argument('eas_url',      help='EAS URL')
         argparser.add_argument('eas_instance', help='EAS instance')
@@ -96,7 +94,7 @@ class ETLJob(object):
 
     def _prepare(self, source_dir, destination_dir, create_policy, *args, **kwargs):
         start = time.time()
-        self.destination, self.source = prepare(self.easydb_api, destination_dir, source_dir, create_policy, *args, **kwargs)
+        self.destination, self.source = easydb.migration.transform.prepare.prepare(self.easydb_api, destination_dir, source_dir, create_policy, *args, **kwargs)
         self.source.open()
         end = time.time()
         self.log_time('prepare', start, end)
