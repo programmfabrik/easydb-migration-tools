@@ -17,4 +17,3 @@ with the data gathered from different origin systems.
 
 The module easydb.migration.transform offers diverse extraction and transformation tools to build a "destination",
 which is an SQLite database, and fill it with the data processed from the "source".
-
