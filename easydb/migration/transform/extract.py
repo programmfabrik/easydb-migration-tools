@@ -12,6 +12,7 @@ import sqlite3
 
 import easydb.migration.transform.common
 import easydb.tool.batch
+import easydb.repository.base
 
 logger = logging.getLogger('easydb.migration.transform.extract')
 asset_types = ['data', 'filename', 'url']
@@ -171,7 +172,7 @@ def process_batch(batch, db, source, destination_table, asset_columns, stop_on_e
                     db.insert_row(destination_table, row)
                     for asset_column in asset_columns:
                         process_assets(db, source, asset_column, file_table_id, source_id, stop_on_error)
-            except ExecutionError as e:
+            except easydb.repository.base.ExecutionError as e:
                 logger.error('error when inserting/updating row to {0}:\n{1}\n{2}'.format(destination_table, json.dumps(row, indent=4), e))
                 if stop_on_error:
                     raise easydb.migration.transform.common.MigrationStop()
@@ -231,7 +232,7 @@ def process_assets(db, source, asset_column, file_table_id, source_id, stop_on_e
                 if rs.next()['count(*)'] == 0:
                     db.insert_row(table, row)
                 del rs
-    except ExecutionError as e:
+    except easydb.repository.base.ExecutionError as e:
         logger.error('error when {4} for {0}.{1}.{2}:{3}\nERROR: {4}'.format(asset_column.schema, asset_column.table, asset_column.column, source_id, e, error_str))
         raise Exception('extract - could not fetch assets: {0}'.format(e))
 

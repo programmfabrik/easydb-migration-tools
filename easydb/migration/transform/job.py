@@ -23,11 +23,21 @@ class TransformJob(object):
         self.eas_url = eas_url
         self.eas_instance = eas_instance
         self.time_info = []
-        self._prepare(source_dir, destination_dir, create_policy, *args, **kwargs)
+        self.source_dir = source_dir
+        self.destination_dir = destination_dir
+        self.create_policy = create_policy
+        self.source = None
 
     def __del__(self):
-        if self.source.is_open():
+        if self.source is not None and self.source.is_open():
             self.source.close()
+
+    def prepare(self, *args, **kwargs):
+        start = time.time()
+        self.destination, self.source = easydb.migration.transform.prepare.prepare(self.easydb_api, self.destination_dir, self.source_dir, self.create_policy, *args, **kwargs)
+        self.source.open()
+        end = time.time()
+        self.log_time('prepare', start, end)
 
     def extract(self, extractor, destination_table, row_transformations=[], asset_columns=[], batch_size=1000, stop_on_error=None, defer_foreign_keys=False):
         start = time.time()
@@ -73,10 +83,10 @@ class TransformJob(object):
         self.time_info.append((what, time_ms))
 
     @staticmethod
-    def start_job(job_name, create_policy, *args, **kwargs):
+    def create_job(job_name, create_policy):
         argparser = TransformJob.get_argparser(job_name)
         a = argparser.parse_args()
-        return TransformJob(a.url, a.login, a.password, a.eas_url, a.eas_instance, a.source, a.destination, create_policy, *args, **kwargs)
+        return TransformJob(a.url, a.login, a.password, a.eas_url, a.eas_instance, a.source, a.destination, create_policy)
 
     @staticmethod
     def get_argparser(job_name):
@@ -89,13 +99,4 @@ class TransformJob(object):
         argparser.add_argument('--login',      help='easydb login', default='root')
         argparser.add_argument('--password',   help='easydb password', default='admin')
         return argparser
-
-    # private
-
-    def _prepare(self, source_dir, destination_dir, create_policy, *args, **kwargs):
-        start = time.time()
-        self.destination, self.source = easydb.migration.transform.prepare.prepare(self.easydb_api, destination_dir, source_dir, create_policy, *args, **kwargs)
-        self.source.open()
-        end = time.time()
-        self.log_time('prepare', start, end)
 
