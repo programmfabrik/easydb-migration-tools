@@ -4,20 +4,21 @@ __all__ = [
 ]
 
 import logging
+import json
 import re
-import urllib
 import requests
 import os
 import hashlib
 
-from easydb.etl.repository.base import *
+from easydb.repository.base import *
 from easydb.server.datamodel import *
 from easydb.server.object import *
-from easydb.server.pool import *
 from easydb.server.group import *
 from easydb.server.user import *
-from easydb.tool.batch import *
 from easydb.tool.sql import sql_list
+from easydb.server.pool import *
+from easydb.tool.json import *
+from easydb.tool.batch import *
 
 # public
 
@@ -34,7 +35,7 @@ def load(
     search_assets=True,
     tmp_asset_file='/tmp/easy5-migration-asset'):
     global logger
-    logger = logging.getLogger('easydb.etl.load')
+    logger = logging.getLogger('easydb.migration.load.loader')
 
     if objecttypes is None:
         raise Exception('Destination.load: objecttypes=None not yet implemented')
