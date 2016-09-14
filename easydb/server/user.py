@@ -42,9 +42,9 @@ class User(object):
             js["_emails"] = [
                 {
                     "email": self.email,
-                    "use_for_login": False,
-                    "use_for_email": False,
-                    "send_email": False,
+                    "use_for_login": True,
+                    "use_for_email": True,
+                    "send_email": True,
                     "send_email_include_password": False,
                     "is_primary": True,
                     "intended_primary": False
