@@ -33,7 +33,7 @@ def load(
     batch_size=1000,
     stop_on_error=True,
     search_assets=True,
-	verify_ssl=True
+    verify_ssl=True,
     tmp_asset_file='/tmp/easy5-migration-asset'):
     global logger
     logger = logging.getLogger('easydb.migration.load.loader')
@@ -57,7 +57,7 @@ def load(
             cnl = {}
             if objecttype in custom_nested_loaders:
                 cnl = custom_nested_loaders[objecttype]
-            load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl cnl)
+            load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl, cnl)
     if manage_source:
         source.close()
 
@@ -239,7 +239,7 @@ def load_objects(
     tmp_asset_file,
     stop_on_error,
     search_assets,
-	verify_ssl,
+    verify_ssl,
     custom_nested_loaders):
 
     objecttype = ez_schema.objecttypes[objecttype]
@@ -292,7 +292,7 @@ class Loader(object):
         self.logger = logging.getLogger('easydb.etl.load')
         self.custom_nested_loaders = {}
         self.search_assets = search_assets
-		self.verify_ssl = verify_ssl
+        self.verify_ssl = verify_ssl
 
     def preload(self):
         for objecttype, custom_loader in self.custom_nested_loaders.items():
