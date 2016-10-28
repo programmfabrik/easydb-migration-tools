@@ -33,6 +33,7 @@ def load(
     batch_size=1000,
     stop_on_error=True,
     search_assets=True,
+	verify_ssl=True
     tmp_asset_file='/tmp/easy5-migration-asset'):
     global logger
     logger = logging.getLogger('easydb.migration.load.loader')
@@ -56,7 +57,7 @@ def load(
             cnl = {}
             if objecttype in custom_nested_loaders:
                 cnl = custom_nested_loaders[objecttype]
-            load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, cnl)
+            load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl cnl)
     if manage_source:
         source.close()
 
@@ -238,11 +239,12 @@ def load_objects(
     tmp_asset_file,
     stop_on_error,
     search_assets,
+	verify_ssl,
     custom_nested_loaders):
 
     objecttype = ez_schema.objecttypes[objecttype]
     logger.info('[load-objects] begin - objecttype "{0}"'.format(objecttype.name))
-    loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets)
+    loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
     loader.custom_nested_loaders = custom_nested_loaders
     loader.preload()
     loader.prepare_query()
@@ -275,7 +277,7 @@ def get_next_objects(db, objecttype):
 
 class Loader(object):
 
-    def __init__(self, source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, uplink_id=None):
+    def __init__(self, source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl = True, uplink_id=None):
         self.source = source
         self.destination = destination
         self.ez_schema = ez_schema
@@ -290,6 +292,7 @@ class Loader(object):
         self.logger = logging.getLogger('easydb.etl.load')
         self.custom_nested_loaders = {}
         self.search_assets = search_assets
+		self.verify_ssl = verify_ssl
 
     def preload(self):
         for objecttype, custom_loader in self.custom_nested_loaders.items():
@@ -514,7 +517,7 @@ class Loader(object):
                     with open(self.tmp_asset_file, 'wb') as output_file:
                         output_file.write(data_row['data'])
                 elif source_type == 'url':
-                    r = requests.get(row['source'], stream=True)
+                    r = requests.get(row['source'], stream=True, verify=self.verify_ssl)
                     if r.status_code != 200:
                         logger.error('failed to fetch asset from URL {0}'.format(row['source']))
                         continue
@@ -571,7 +574,7 @@ class Loader(object):
             'instance': self.eas_instance,
             'type.unique_id': eas_file_unique_id
         }
-        r = requests.get(url, params=params)
+        r = requests.get(url, params=params, verify = self.verify_ssl)
         if r.status_code != 200:
             logger.error('search asset failed: eas returned {0}: {1}'.format(r.status_code, r.text))
             return []

@@ -177,7 +177,7 @@ class EasydbAPI(object):
     # internal
 
     def get_url(self, call):
-        return '{0}/api/{1}'.format(self.url, call)
+        return '{0}/api/v1/{1}'.format(self.url, call)
 
     def add_token_param(self, params={}):
         params['token'] = self.token

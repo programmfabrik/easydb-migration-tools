@@ -30,13 +30,13 @@ class LoadJob(object):
         if self.source is not None and self.source.is_open():
             self.source.close()
 
-    def load(self, objecttypes=None, batch_size=1000, search_assets=True, stop_on_error=None, custom_nested_loaders={}):
+    def load(self, objecttypes=None, batch_size=1000, search_assets=True, verify_ssl=True, stop_on_error=None, custom_nested_loaders={}):
         start = time.time()
         if stop_on_error is None:
             stop_on_error = self.exit_on_error
         try:
             easydb.migration.load.loader.load(
-                self.source, self.destination, self.easydb_api, self.eas_url, self.eas_instance, objecttypes, custom_nested_loaders, batch_size, stop_on_error, search_assets)
+                self.source, self.destination, self.easydb_api, self.eas_url, self.eas_instance, objecttypes, custom_nested_loaders, batch_size, stop_on_error, search_assets, verify_ssl)
         except easydb.migration.transform.common.MigrationStop:
             if self.exit_on_error:
                 exit(1)
