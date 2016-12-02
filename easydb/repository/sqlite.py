@@ -81,7 +81,7 @@ class SQLiteRepository(Repository):
     def _table_column(self, column_def):
         extra_info = ''
         if column_def.pk:
-            extra_info = ' primary key'
+            extra_info = ' primary key not null'
         return '"{0}" {1}{2}'.format(column_def.name, SQLiteRepository.translate_type(column_def.type), extra_info)
 
     def _table_constraint(self, constraint_def):
