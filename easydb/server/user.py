@@ -24,6 +24,7 @@ class User(object):
         self.country = None
         self.password = None
         self.frontend_prefs = None
+        self.login_disabled = False
         self.groups = []
         self.source_id = None
 
@@ -41,7 +42,8 @@ class User(object):
                 'postal_code': self.postal_code,
                 'town': self.town,
                 'country': self.country,
-                'frontend_prefs': self.frontend_prefs
+                'frontend_prefs': self.frontend_prefs,
+                'login_disabled': self.login_disabled
             },
             '_groups': list(map(lambda gid: { 'group': {'_id': int(gid)} }, self.groups))
         }
@@ -90,6 +92,9 @@ class User(object):
             elif key == 'frontend_prefs':
                 if value is not None:
                     user.frontend_prefs = json.loads(value)
+            elif key == 'login_disabled':
+                if value is not None:
+                    user.login_disabled = value
             elif key == '__source_unique_id':
                 user.source_id = value
         for row in group_rows:

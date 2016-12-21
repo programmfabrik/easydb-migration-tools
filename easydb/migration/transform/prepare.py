@@ -137,6 +137,7 @@ class DestinationSchema(object):
         self._add_column(table_def, 'country', 'text')
         self._add_column(table_def, 'password', 'text')
         self._add_column(table_def, 'frontend_prefs', 'text')
+        self._add_column(table_def, 'login_disabled', 'bool')
         self.db_schema.tables.append(table_def)
 
     def _create_user__group(self):
