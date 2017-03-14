@@ -50,6 +50,7 @@ class User(object):
         if self.email is not None:
             js["_emails"] = [
                 {
+                    "needs_confirmation":False,
                     "email": self.email,
                     "use_for_login": True,
                     "use_for_email": False,
