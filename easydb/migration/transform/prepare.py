@@ -95,6 +95,8 @@ class DestinationSchema(object):
         self._create_user__group()
         self._create_tag_group()
         self._create_tag()
+        self._create_collection()
+        self._create_collection_objects()
 
     def _create_dependencies(self):
         logger.debug('create dependencies table')
@@ -112,6 +114,27 @@ class DestinationSchema(object):
         self._add_l10n_columns(table_def, 'name')
         self._add_l10n_columns(table_def, 'description')
         self._add_column(table_def, '_standard_masks', 'text')
+        self.db_schema.tables.append(table_def)
+
+
+    def _create_collection(self):
+        logger.debug('create collection table')
+        table_def = self._easydb_table('ez_collection')
+        self._add_l10n_columns(table_def, 'displayname')
+        self._add_l10n_columns(table_def, 'description')
+        self._add_column(table_def, '__parent_id', 'text')
+        self._add_column(table_def, '__owner', 'text')
+        self._add_column(table_def, '__owner_id', 'text')
+        self._add_column(table_def, '__user_collection_id', 'text')
+        self.db_schema.tables.append(table_def)
+
+    def _create_collection_objects(self):
+        logger.debug('create collection_objects table')
+        table_def = self._easydb_table('ez_collection__objects')
+        self._add_column(table_def, 'collection_id', 'text')
+        self._add_column(table_def, 'object_id', 'text')
+        self._add_column(table_def, 'object_goid', 'text')
+        self._add_column(table_def, 'uploaded', 'text')
         self.db_schema.tables.append(table_def)
 
     def _create_group(self):

@@ -84,4 +84,3 @@ class LoadJob(object):
         argparser.add_argument('--login',      help='easydb login', default='root')
         argparser.add_argument('--password',   help='easydb password', default='admin')
         return argparser
-

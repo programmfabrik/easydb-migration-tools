@@ -48,9 +48,7 @@ objecttypes = [
 ]
 
 
-job.load(objecttypes)#incase https is necessary call with "verify_ssl=False" added
+job.load(objecttypes)#incase https is necessary call with "verify_ssl=False" ##to skip Searching for existing assets call with "search_assets=False"
 
 
 job.log_times()
-
-

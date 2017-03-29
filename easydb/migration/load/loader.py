@@ -22,6 +22,8 @@ from easydb.server.datamodel import *
 from easydb.server.object import *
 from easydb.server.group import *
 from easydb.server.user import *
+from easydb.server.collection import *
+from easydb.server.collection_object import *
 from easydb.tool.sql import sql_list
 from easydb.server.pool import *
 from easydb.tool.json import *
@@ -60,6 +62,10 @@ def load(
             load_users(source, destination, ezapi, batch_size)
         elif objecttype == 'ez_tag':
             load_tags(source, destination, ezapi, batch_size)
+        elif objecttype == 'ez_collection':
+            load_collections(source, destination, ezapi, batch_size)
+        elif objecttype == 'ez_collection__objects':
+            load_collection_objects(source, destination, ezapi, batch_size)
         else:
             cnl = {}
             if objecttype in custom_nested_loaders:
@@ -106,6 +112,109 @@ def build_get_pools_statement(languages):
         for language in languages:
             s += ',\n\tc."{0}:{1}"'.format(column_name, language)
     return sql_get_pools.format(s)
+# -  Collections
+
+def load_collections(
+    source,
+    destination,
+    ezapi,
+    batch_size):
+
+    logger.info('load collection')
+
+    db = destination.get_db()
+    db.open()
+
+    users=db.execute('SELECT login, __easydb_id FROM "easydb.ez_user"')
+    logger.info('SET COLLECTION OWNERS IN DESTINATION')
+
+    for user in users:
+        logger.debug('FOR SCHLEIFE')
+        owner='user_'+user['login']
+        sql='UPDATE "easydb.ez_collection" SET "__owner_id" = {}, __owner="{}" WHERE "__owner"="{}"'.format(user['__easydb_id'],user['login'],owner)
+        db.execute(sql)
+
+    collections=ezapi.get('collection/list')
+    root_collection_id=collections[0]['collection']['_id']
+    logger.debug('ROOT_COLLECTION_ID =' +str(root_collection_id))
+
+    collections=ezapi.get('collection/list/{}'.format(root_collection_id))
+    logger.info('SET COLLECTION USER_COLLECTION_IDS')
+
+    for collection in collections:
+        collection_id=collection['collection']['_id']
+        if collection['_owner']['_basetype'] == 'user':
+            collection_owner_id=collection['_owner']['user']['_id']
+            logger.debug('COLLECTION ' +str(collection_id) + 'HAS PARENT OWNER_ID ' + str(collection_owner_id))
+        else:
+            logger.debug('COLLECTION ' +str(collection_id) + 'HAS NO OWNER')
+            continue
+        sql='UPDATE "easydb.ez_collection" SET "__user_collection_id" = {} WHERE "__owner_id"={} AND "__parent_id" is NULL'.format(collection_id, collection_owner_id)
+        db.execute(sql)
+
+    db.close()
+    logger.info('UPLOAD COLLECTIONS')
+
+    loop = True
+    while(loop):
+        db.open()
+        loop = False
+        sql = build_get_collections_statement(destination.get_schema_languages())
+        rows = db.execute(sql)
+        job = BatchedJob(BatchMode.List, batch_size, load_collections_batch, ezapi, db)
+        for row in rows:
+            loop = True
+            logger.info('load collection row: {0}'.format(row['displayname:de-DE']))
+            job.add(Collection.from_row(row))
+        job.finish()
+        del(rows)
+        db.close()
+
+def load_collections_batch(batch, ezapi, db):
+    ezapi.create_collections(batch)
+    for collection in batch:
+        db.execute(sql_update_collection_easydb_id, collection.id, collection.source_id)
+        db.execute(sql_update_collection_easydb_id_objects, collection.id, collection.source_id)
+
+def build_get_collections_statement(languages):
+    s = ''
+    for column_name in ['displayname', 'description']:
+        for language in languages:
+            s += ',\n\tc."{0}:{1}"'.format(column_name, language)
+
+    return sql_get_collections.format(s)
+
+##ES müssen erst alle easydb-Objekte erstellt werden, bevor die Collections/Mappen gefüllt werden können
+def load_collection_objects(
+    source,
+    destination,
+    ezapi,
+    batch_size):
+
+    logger.info('load collection_objects')
+
+    loop = True
+    while(loop):
+        db = destination.get_db()
+        db.open()
+        loop = False
+        sql = 'SELECT * FROM "easydb.ez_collection__objects" where "uploaded" is null'
+        rows = db.execute(sql)
+        job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)#
+        for row in rows:
+            loop = True
+            logger.info('load collection_objects row: {0}'.format(row))#
+            job.add(Collection_Object.from_row(row))
+        job.finish()
+        del(rows)
+        db.close()
+
+def load_collection_objects_batch(batch, ezapi, db):
+    ezapi.create_collection_objects(batch)
+    for collection_object in batch:
+        db.execute(sql_update_collection_object_easydb_id, collection_object.uploaded, collection_object.source_id)
+
+# - Groups#
 
 def load_groups(
     source,
@@ -495,6 +604,7 @@ class Loader(object):
         logger.info('[{0}] update destination'.format(self.objecttype.name))
         update_sql = 'update "easydb.{0}" set "__easydb_id" = ?, "__easydb_goid" = ? where "__source_unique_id" = ?'.format(self.objecttype.name)
         for o in objects:
+            db.execute('UPDATE "easydb.ez_collection__objects" SET object_id= ?, object_goid=? WHERE object_id= ?', o.id, o.global_object_id, o.source_id)
             rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
             if rows.rowcount != 1:
                 raise Exception('could not update easydb id')
@@ -629,8 +739,8 @@ def get_eas_file_unique_id(filename):
 sql_get_pools = """\
 select
 	c.__source_unique_id,
-        c._standard_masks,
-	p."__easydb_id" as "__parent_id"{0}
+    c._standard_masks,
+	p.__easydb_id as __parent_id{0}
 from "easydb.ez_pool" c
 left join "easydb.ez_pool" p on c."__parent_id" == p."__source_unique_id"
 where
@@ -638,9 +748,38 @@ where
 	(c."__parent_id" is null or p."__easydb_id" is not null)
 """
 
+sql_get_collections = """\
+select
+	c.__source_unique_id,
+    c.__owner_id,
+    c.__owner,
+    c.__user_collection_id,
+	p.__easydb_id as __parent_id{0}
+from "easydb.ez_collection" c
+left join "easydb.ez_collection" p on c."__parent_id" == p."__source_unique_id"
+where
+	c."__easydb_id" is null and
+	(c."__parent_id" is null or p."__easydb_id" is not null)
+"""
+
+sql_update_collection_object_easydb_id="""\
+update "easydb.ez_collection__objects"
+    set "uploaded" = ? where "__source_unique_id" = ?
+"""
+
 sql_update_pool_easydb_id = """\
 update "easydb.ez_pool"
 set "__easydb_id" = ? where "__source_unique_id" = ?
+"""
+
+sql_update_collection_easydb_id = """\
+update "easydb.ez_collection"
+set "__easydb_id" = ? where "__source_unique_id" = ?
+"""
+
+sql_update_collection_easydb_id_objects = """\
+update "easydb.ez_collection__objects"
+set "collection_id" = ? where "collection_id" = ?
 """
 
 sql_get_groups = """\

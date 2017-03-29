@@ -155,6 +155,27 @@ class EasydbAPI(object):
             pools[i].id = extract_from_json(response_objects[i], 'pool._id')
 
     @authenticated
+    def create_collections(self, collections):
+        if len(collections) == 0:
+            return
+        for collection in collections:
+            self.logger.info("PUT {}".format(collection.displayname['de-DE']))
+            response_object=self.put('collection', collection.to_json())
+            self.logger.debug('PUSH collection:\n{0}'.format(extract_from_json(response_object, 'collection.displayname:de-DE')))
+            collection.id = extract_from_json(response_object, 'collection._id')
+
+    @authenticated
+    def create_collection_objects(self, collection_objects):
+        if len(collection_objects) == 0:
+            return
+        for collection_object in collection_objects:
+            call="collection/objects/{}".format(collection_object.collection_id)
+            self.logger.info("POST {}".format(call))
+            response_object = self.post(call, collection_object.to_json())
+            self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
+            collection_object.uploaded = "yes"
+
+    @authenticated
     def create_groups(self, groups):
         if len(groups) == 0:
             return

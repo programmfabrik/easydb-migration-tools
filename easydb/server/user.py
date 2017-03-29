@@ -53,7 +53,7 @@ class User(object):
                     "needs_confirmation":False,
                     "email": self.email,
                     "use_for_login": True,
-                    "use_for_email": False,
+                    "use_for_email": True,
                     "send_email": False,
                     "send_email_include_password": False,
                     "is_primary": True,
