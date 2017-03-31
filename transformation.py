@@ -9,20 +9,21 @@ import easydb.migration.transform.job
 import easydb.migration.transform.prepare
 from easydb.migration.transform.extract import AssetColumn
 
+#execution: ./transform eadb-url source-directory destination-directory --login LOGIN --password PASSWORD || requires source-db named "source.db" in source-directory
+###############################################################################
 
 ##INSTANZSPEZIFISCHE VARIABLEN
 ##VOR AUSFÜHRUNG SETZEN!
 
-schema= "public" #meistens 'public'
-instanz= "lette-verein"#Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-collection_name= "arbeitsmappen"#Bezeichnung der Mappen-Tabelle in Source
-collection_objects_name="arbeitsmappe__bilder"
+schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
+instanz= None                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
+collection_table= None                           #Bezeichnung der Mappen-Tabelle in Source
+collection_objects_table= None                   #Link-Tabelle für Objekte in Mappen
 
-#########################################################################
+###############################################################################
 
-#execution: ./transform eadb-url source-directory destination-directory --login LOGIN --password PASSWORD || requires source-db named "source.db" in source-directory
 
-if schema is None or instanz is None:
+if schema is None or instanz is None or collection_table is None or collection_objects_table is None:
     print('Instanzspezifische Variablen festlegen')
     sys.exit(0)
 
@@ -58,36 +59,12 @@ logging.getLogger('requests').setLevel('WARN')
 logging.getLogger('easydb.repository').setLevel('WARN')
 logging.getLogger('easydb.migration.transform.source').setLevel('WARN')
 logging.getLogger('easydb.migration.transform.prepare').setLevel('INFO')
-#logging.getLogger('easydb.migration.transform.extract').setLevel('INFO')
+logging.getLogger('easydb.migration.transform.extract').setLevel('INFO')
 
 #create destination.db
 job.prepare()
 # transform
-
-def final_touch(tables):
-    source_conn = sqlite3.connect(job.source.filename)
-    source_c = source_conn.cursor()
-    destination_conn = sqlite3.connect(job.destination.filename)
-    destination_c = destination_conn.cursor()
-
-    destination_c.execute('DELETE FROM "easydb.ez_user" WHERE login="root"')#Delete root-user, to prevent conflicting unique_user constraint (root is default system-user)
-    destination_c.execute('INSERT INTO "easydb.ez_pool" ("__source_unique_id", "name:de-DE") VALUES ("STANDARD", "STANDARD_FALLBACK")')#create FALLBACK-pool for any records that have no pool
-
-    for table in tables:
-
-        if table['has_parent']:
-            req = 'SELECT fk_father_id, id FROM "' + table["table_from"] +'"'#get parent-ids from source
-            for row in source_c.execute(req):
-                if row[0]!=None:
-                    write = 'UPDATE "{0}" SET __parent_id = '.format(table["table_to"]) + str(row[0]) + ' WHERE __source_unique_id = ' + str(row[1])#set parent-id for lists with hierarchical-ordering
-                else:
-                    write = 'UPDATE "{0}" SET __parent_id = NULL'.format(table["table_to"]) + ' WHERE __source_unique_id = ' + str(row[1])#set no parent-id
-                destination_c.execute(write)
-        if table['has_pool']:
-            destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
-    destination_conn.commit()
-
-tables=[]#list of all tables, a transformation for each table must be appended in the dictionary stile below
+tables=[]       #list of all tables, a transformation for each table must be appended in the dictionary stile below
 
 ##USERS
 tables.append(
@@ -166,8 +143,8 @@ tables.append(
             beschreibung as "description:de-DE",
             easydb_owner as __owner
         FROM "{}.{}.{}"
-        """.format(instanz,schema,collection_name),
-        'table_from':'{}.{}.{}'.format(instanz,schema,collection_name),
+        """.format(instanz,schema,collection_table),
+        'table_from':'{}.{}.{}'.format(instanz,schema,collection_table),
         'table_to':'easydb.ez_collection',
         'has_parent': False,
         'has_pool': False,
@@ -175,10 +152,10 @@ tables.append(
    }
 )
 
-
-##INSERT CUSTOM OBJECT-TYPES HERE
+################################################################################
+-------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
-tables.append(
+add_table(
     {
         'sql':
         """\
@@ -188,16 +165,16 @@ tables.append(
             name as "displayname:de-DE"
         FROM "{0}.{1}.table_from"
         """.format(instanz,schema),                                 #sql query (hard to automatize, because of varying join, etc.), all fields are examples, must replace those
-        'table_from': '{0}.{1}.beispiel'.format(instanz,schema),    #table in source
-        'table_to': 'easydb.beispiel',                              #table in destination
+        'table_from': '{0}.{1}.table'.format(instanz, schema),      #table in source
+        'table_to': 'easydb.table',                                 #table in destination
         'has_parent': False,                                        #True if Object is part of a List with hierarchical ordering
         'has_pool': False,                                          #True if records of this table are orgranized in pools
         'has_asset': False                                          #True if record has a file attached to it
-        'asset_columns': [AssetColumn(instanz, '{}.assets'.format(schema), 'bild', 'assets', 'bild', ['url'])] #Hier muss in Source und Destination geschaut werden welche Tabllen/Feldnamen verwendet werden
+        'asset_columns': [AssetColumn(instanz, '{}.table'.format(schema), 'column', 'table', 'column', ['url'])]
     }
 )
 
-
+################################################################################
 ##COLLECTION OBJECTS
 tables.append(
     {
@@ -208,13 +185,13 @@ tables.append(
             lk_bild_id as object_id,
             lk_arbeitsmappe_id as collection_id
         FROM "{}.{}.{}"
-        """.format(instanz,schema,collection_objects_name),
-        'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_name),
+        """.format(instanz,schema,collection_objects_table),
+        'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),
         'table_to':'easydb.ez_collection__objects',
         'has_parent': False,
         'has_pool': False,
         'has_asset': False
-   }
+    }
 )
 
 
@@ -228,3 +205,33 @@ for table in tables:
 
 final_touch(tables)
 job.log_times()
+
+
+def final_touch(tables):
+    source_conn = sqlite3.connect(job.source.filename)
+    source_c = source_conn.cursor()
+    destination_conn = sqlite3.connect(job.destination.filename)
+    destination_c = destination_conn.cursor()
+
+    destination_c.execute('DELETE FROM "easydb.ez_user" WHERE login="root"')#Delete root-user, to prevent conflicting unique_user constraint (root is default system-user)
+    destination_c.execute('INSERT INTO "easydb.ez_pool" ("__source_unique_id", "name:de-DE") VALUES ("STANDARD", "STANDARD_FALLBACK")')#create FALLBACK-pool for any records that have no pool
+
+    for table in tables:
+
+        if table['has_parent']:
+            req = 'SELECT fk_father_id, id FROM "' + table["table_from"] +'"'#get parent-ids from source
+            for row in source_c.execute(req):
+                if row[0]!=None:
+                    write = 'UPDATE "{0}" SET __parent_id = '.format(table["table_to"]) + str(row[0]) + ' WHERE __source_unique_id = ' + str(row[1])#set parent-id for lists with hierarchical-ordering
+                else:
+                    write = 'UPDATE "{0}" SET __parent_id = NULL'.format(table["table_to"]) + ' WHERE __source_unique_id = ' + str(row[1])#set no parent-id
+                destination_c.execute(write)
+        if table['has_pool']:
+            destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
+    destination_conn.commit()
+
+def add_table(table):
+    if(table.['has-asset'])
+        source_values = table[table_from].split(".")
+        table[]=
+    tables.apend(table)
