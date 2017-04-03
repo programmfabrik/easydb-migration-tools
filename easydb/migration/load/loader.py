@@ -850,7 +850,6 @@ sql_get_next_objects = """\
 select __source_unique_id
 from "easydb.{0}"
 where __easydb_id is null
-order by cast(__source_unique_id as integer) DESC
 """
 
 sql_get_next_objects_hierarchical = """\
