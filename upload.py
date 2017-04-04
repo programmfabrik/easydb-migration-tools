@@ -44,7 +44,7 @@ logging.getLogger('easydb.migration.load.loader').setLevel('INFO')
 # dont include: link-tables (example__linked_object), file and system tables
 
 objecttypes = [
-    'example',
+     'ez_user', 'ez_group', 'ez_pool', 'ez_collection'
 ]
 
 

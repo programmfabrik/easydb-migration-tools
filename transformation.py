@@ -63,6 +63,7 @@ logging.getLogger('easydb.migration.transform.extract').setLevel('INFO')
 
 #create destination.db
 job.prepare()
+###Zur Erzeugung einer leeren Destination alles ab hier auskommentieren
 # transform
 tables=[]       #list of all tables, a transformation for each table must be appended in the dictionary stile below
 
