@@ -13,7 +13,9 @@ import easydb.migration.extract
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
 instanz= None                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-eas-instanz
+eas-instanz = None                              #Muss man rausfinden z.B. in postgres eas:eas.instances auslesen oder ezadmin-seite der easydb, config files, etc.
+source-file = source.db                         #Kann man so lassen -> Source wird im aktuellen Verzeichnis erstellt
+init = True                                     #Wenn True -> Bestehende Sourrce überschreiben (Sollte True bleiben)
 ###############################################################################
 if schema is None or instanz is None:
     print('Instanzspezifische Variablen festlegen')
@@ -22,11 +24,6 @@ if schema is None or instanz is None:
 
 easydb.migration.extract.__pg_init()
 easydb.migration.extract.__sqlite_init()
-
-parser = argparse.ArgumentParser('Extract Instanz-Name')
-parser.add_argument('source', help='source db file')
-parser.add_argument('--init', dest='init', action='store_const', const=True, default=False, help='if source exists, force init')
-args = parser.parse_args()
 
 if args.init:
     init = True
