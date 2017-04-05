@@ -3,20 +3,20 @@
 Für die Migration werden zwei sqlite-Datenbanken erstellt. Zunächst werden die Daten von easydb4 Server
 extrahiert und in einer Datenbank gespeichert, die "source.db" genannt werden muss. Diese ist im Weiteren gemeint,
 wenn die Rede von "Source" ist.
-Die Daten werden Transformiert und in einer weiteren Datenbank Namens "destination.db" abgelegt. Die im Weiteren als "Destination"
+Die Daten werden transformiert und in einer weiteren Datenbank Namens "destination.db" abgelegt, die im Weiteren als "Destination"
 bezeichnet wird.
 ## Extraction
 Um die Source-Datenbank zu erstellen muss der gesamte Inhalt des Git-Repos "easydb-tools-migration" auf den easydb4 Server geklont oder kopiert werden.
 Für die Erstellung von Source ist das Python-Skript "extraction.py" relevant. Hier müssen zunächst die Variablen "schema", "eas-instanz" und "instanz" gesetzt werden.
-Diese lassen sich am einfachsten über die "/ezadmin" Seite der easydb4 herausfinden. Alle weiteren Werte, wie Verzeichnisse sind im Extraction-Skript,
+Diese lassen sich am einfachsten über die "/ezadmin" Seite der easydb4 herausfinden. Alle weiteren Werte wie Verzeichnisse, etc. sind im Extraction-Skript
 auf übliche Werte gesetzt, müssen gegebenenfalls aber noch angepasst werden.
-In üblicher Konfiguration bezieht das Extraction-Skript strukturelle Information zu Tabllen und Schemas aus einer sqlite-Datenbank in "/opt/easydb/4.0/sql/sqlite/" Daten aus der Postgres-DB der easydb4 und links zu den zughörigen Assets vom EAS-Server. Weitere Quellen sind jedoch ebenfalls möglich. Das Skript "easydb/migration/extract.py" bietet dafür Methoden für unterschiedliche Quellen.
-Sind alle Instanzspezifischen Variablen angepasst, kann das Skript im Verzeichnis "easydb-tools-migration/easydb/"" mit
+In üblicher Konfiguration bezieht das Extraction-Skript strukturelle Information zu Tabellen und Schemas aus einer sqlite-Datenbank in "/opt/easydb/4.0/sql/sqlite/", Daten aus der Postgres-DB der easydb4 und links zu den zughörigen Assets vom EAS-Server. Weitere Quellen sind jedoch ebenfalls möglich. Das Skript "easydb/migration/extract.py" bietet dafür Methoden für unterschiedliche Quellen.
+Sind alle Instanzspezifischen Variablen angepasst, kann das Skript im Verzeichnis "easydb-tools-migration/easydb/" mit
 
 > ./extraction.py source/source.db
 
-ausgeführt werden. Dies erzeugt Source im Unterverzeichnis "source".
-Die Tabllen in Source werdne nach folgendem Prinzip benannt
+ausgeführt werden. Dies erzeugt Source im Unterverzeichnis "source". Dieses Verzeichnis muss vorher angelegt werden.
+Die Tabellen in Source werdne nach folgendem Prinzip benannt
 
 >instanz.schema.tabellen-name
 
@@ -31,8 +31,8 @@ Um ersichtlich zu machen, welche Transformationen nötig sind, sollte zunächst 
 
 ausgeführt werden (am besten den easydb-root-user verwenden, das destination-directory muss vorher angelegt weren).
 
-Alle Tabellen der easydb4 die Migriert werden sollen werden mit einem Dictionary im Transformation-Skript
-beschrieben und der Liste "tables" angehängt. Jedes Dictionary muss dabei folgende Form haben
+Alle Tabellen der easydb4, die Migriert werden sollen, müssen mit einem Dictionary im Transformation-Skript
+beschrieben werdeb und dieses der Liste "tables" angehängt werden. Jedes Dictionary muss dabei folgende Form haben
 
 ```python
 {
@@ -59,7 +59,7 @@ beschrieben und der Liste "tables" angehängt. Jedes Dictionary muss dabei folge
 * "has_asset" muss True sein für alle Datensätze, die Assets besitzen. Für diese muss auch der key
 * "assett_collumns" gesetzt sein.
 
-Für User, Gruppen, Pools und Mappen sind Dictionaries definiert. Alles weitere muss händisch hinzugfügt werden. Wenn alle Tabellen mit einem Dictionary beschrieben  und dieses der Liste "tables" angehängt wurde, kann die Transformation mit
+Für User, Gruppen, Pools und Mappen sind beriets Dictionaries definiert. Alles weitere muss händisch hinzugfügt werden. Wenn alle Tabellen mit einem Dictionary beschrieben  und dieses der Liste "tables" angehängt wurde, kann die Transformation mit
 
 >./transform eadb-url source-directory destination-directory --login LOGIN --password PASSWORD
 
