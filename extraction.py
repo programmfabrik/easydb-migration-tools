@@ -13,8 +13,8 @@ import easydb.migration.extract
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
 instanz= None                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-eas-instanz = None                              #Muss man rausfinden z.B. in postgres eas:eas.instances auslesen oder ezadmin-seite der easydb, config files, etc.
-source-file = source.db                         #Kann man so lassen -> Source wird im aktuellen Verzeichnis erstellt
+eas-instanz = "easydb5"                             #Muss man rausfinden z.B. in postgres eas:eas.instances auslesen oder ezadmin-seite der easydb, config files, etc.
+source-file = "source/source.db"                #Kann man so lassen -> Source wird im aktuellen Verzeichnis erstellt
 init = True                                     #Wenn True -> Bestehende Sourrce überschreiben (Sollte True bleiben)
 ###############################################################################
 if schema is None or instanz is None:
