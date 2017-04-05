@@ -5,9 +5,8 @@ import sys
 import argparse
 import os
 import easydb.migration.extract
-#execution: ./extraction.py source-directory
-###############################################################################
 
+###############################################################################
 ##INSTANZSPEZIFISCHE VARIABLEN
 ##VOR AUSFÜHRUNG SETZEN!
 
