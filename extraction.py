@@ -46,7 +46,7 @@ easydb.migration.extract.sqlite_to_source(
 #Extracts Record-Data from PostgreSQL-DB
 easydb.migration.extract.pg_to_source(
     name=instanz,
-    schema_name=schema,#usually public is fine for every instance
+    schema_name='public',
     dsn='dbname={} port=5440 user=postgres'.format(instanz),#often port is 5432
     include_tables_exclusive=False,
     include_tables = {
