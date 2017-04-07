@@ -12,24 +12,16 @@ import easydb.migration.extract
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
 instanz= None                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-eas-instanz = "easydb5"                             #Muss man rausfinden z.B. in postgres eas:eas.instances auslesen oder ezadmin-seite der easydb, config files, etc.
-source-file = "source/source.db"                #Kann man so lassen -> Source wird im aktuellen Verzeichnis erstellt
+eas_instanz = "easydb5"                             #Muss man rausfinden z.B. in postgres eas:eas.instances auslesen oder ezadmin-seite der easydb, config files, etc.
+source_file = "source/source.db                #Kann man so lassen -> Source wird im aktuellen Verzeichnis erstellt
 init = True                                     #Wenn True -> Bestehende Sourrce überschreiben (Sollte True bleiben)
 ###############################################################################
-if schema is None or instanz is None:
-    print('Instanzspezifische Variablen festlegen')
-    sys.exit(0)
-
 
 easydb.migration.extract.__pg_init()
 easydb.migration.extract.__sqlite_init()
 
-if args.init:
-    init = True
-else:
-    init = not os.path.isfile(args.source)
 
-easydb.migration.extract.prepare_source(args.source, init=init)
+easydb.migration.extract.prepare_source(source_file, init=init)
 
 eadb_link_index = """
 CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
@@ -64,7 +56,7 @@ easydb.migration.extract.pg_to_source(
 easydb.migration.extract.eas_to_source(
     name=instanz,
     url="localhost/eas",#ususallay instanz-url.domain/eas or localhost/eas if executed on the same machine
-    instance=eas-instanz,
+    instance=eas_instanz,
     eas_versions = {
        'original': ['url']#can be changed to store all asset files in data blob, but for migration URLs are working fine
     }
