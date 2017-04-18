@@ -4,62 +4,117 @@
 import sys
 import argparse
 import os
-import easydb.migration.extract
+import extract
+import requests
+import json
+import logging
+import logging.config
 
-###############################################################################
-##INSTANZSPEZIFISCHE VARIABLEN
-##VOR AUSFÜHRUNG SETZEN!
-
-schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
-instanz= None                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-eas_instanz = "easydb5"                             #Muss man rausfinden z.B. in postgres eas:eas.instances auslesen oder ezadmin-seite der easydb, config files, etc.
-source_file = "source/source.db                #Kann man so lassen -> Source wird im aktuellen Verzeichnis erstellt
-init = True                                     #Wenn True -> Bestehende Sourrce überschreiben (Sollte True bleiben)
-###############################################################################
-
-easydb.migration.extract.__pg_init()
-easydb.migration.extract.__sqlite_init()
+logging.basicConfig(level=logging.DEBUG)
 
 
-easydb.migration.extract.prepare_source(source_file, init=init)
+argparser = argparse.ArgumentParser(description='Extraction')
 
-eadb_link_index = """
-CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
-          ON "%TABLE_NAME_IN_SOURCE%" (from_table_id, to_table_id, from_id, to_id);
-"""
-#uses paths and urls for local instances on galaxy, check for correct ones for each instance
-#set name to the same value in every function call!
+subparsers=argparser.add_subparsers(help="Set Export or Migration Mode", dest='mode')
 
-#Extracts structural Inforamtion about source from sqlite-file
-easydb.migration.extract.sqlite_to_source(
-    name=instanz,
-    filename='/opt/easydb/4.0/sql/sqlite/{}.sqlite'.format(instanz) #e.g. /var/lib/sqlite/instanz-name.sqlite or /opt/easydb/4.0/sql/sqlite/instanz-name.sqlite
-)
-#Extracts Record-Data from PostgreSQL-DB
-easydb.migration.extract.pg_to_source(
-    name=instanz,
-    schema_name='public',
-    dsn='dbname={} port=5440 user=postgres'.format(instanz),#often port is 5432
-    include_tables_exclusive=False,
-    include_tables = {
-        '{}.eadb_links'.format(schema): {
+migration_parser=subparsers.add_parser('migration', help="Set Migration Mode to create Source for Migration")
+migration_parser.add_argument('--auto_fetch', nargs=3,                  help='Fetch Server Information from URL , usage: "--auto_fetch URL login password" If set no other arguments have to be set')
+migration_parser.add_argument('--name_in_source',                       help='Name preceding schema and table names in Source, e.g. if export -> export.public.table')
+migration_parser.add_argument('--easydb_pg_dsn',                        help='DSN for easydb-PostgreSQL Server')
+migration_parser.add_argument('--easydb_sqlite_file',                   help='Filename for easydb_SQLite Database')
+migration_parser.add_argument('--easydb_eas_url',                       help='URL for easydb-EAS-Server')
+migration_parser.add_argument('--easydb_eas_instance',                  help='Instance-Name on EAS-Server')
+migration_parser.add_argument('--source', default='source.db',          help='Source name and directory (Default: ./source.db)')
+
+export_parser=subparsers.add_parser('export', help="Set Export Mode to dump selected data to sqlite")
+export_parser.add_argument('--pg_dsn',                                  help='DSN for PostgreSQL')
+export_parser.add_argument('--pg_tables', nargs='*', default=[],        help='Select Tables for Export from postgresql')
+export_parser.add_argument('--asset',  nargs='*', default=[],           help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
+export_parser.add_argument('--sqlite_file',                             help='Filename for SQLite Database')
+export_parser.add_argument('--eas_url',                                 help='URL for EAS-Server')
+export_parser.add_argument('--eas_instance',                            help='Instance-Name on EAS-Server')
+export_parser.add_argument('-o', '--output', default='dump.db',          help='Sqlite-Dump name and directory (Default: ./dump.db)')
+
+argparser.add_argument('--init', action='store_true',                   help='If set, existing files will be purged')
+
+args = argparser.parse_args()
+
+if args.mode=="migration":
+
+    if args.auto_fetch is not None:
+        req_url='{}/ezadmin/dumpconfig'.format(args.auto_fetch[0])
+        ez_conf = requests.get(req_url, auth=(args.auto_fetch[1],args.auto_fetch[2])).json()
+        name = req_url.split('.')[0].split('//')[1]
+
+        pg_dsn = ez_conf['PDO_DATA_DSN'].split(':')[1].replace(';',' ')
+
+        sqlite_file = ez_conf['PDO_DESIGN_DSN'].split(':')[1]
+
+        eas_url = ez_conf['EAS_INTERNAL_URL']
+
+        eas_instance =  ez_conf['INSTANCE']
+
+    if args.name_in_source is not None:
+        name = args.name_in_source
+
+    if args.easydb_pg_dsn is not None:
+        pg_dsn = args.easydb_pg_dsn
+
+    if args.easydb_sqlite_file:
+        sqlite_file = args.easydb_sqlite_file
+
+    if args.easydb_eas_url is not None:
+        eas_url = args.easydb_eas_url
+
+    if args.easydb_eas_instance is not None:
+        eas_instance =  args.easydb_eas_instance
+
+    source_file=args.source
+
+    extract.__pg_init()
+    extract.__sqlite_init()
+
+    extract.prepare_source(source_file, init=True)
+
+    eadb_link_index = """
+    CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
+    ON "%TABLE_NAME_IN_SOURCE%" (from_table_id, to_table_id, from_id, to_id);
+    """
+
+    if sqlite_file is not None:
+        logging.info("Adding sqlite to Source")
+        extract.sqlite_to_source(
+            name=name,
+            filename=sqlite_file
+            )
+
+    logging.info("Adding POSTGRES to Source (migration)")
+    extract.pg_to_source(
+        name=name,
+        schema_name='public',
+        dsn=pg_dsn,
+        include_tables_exclusive=False,
+        include_tables = {
+        '{}.eadb_links'.format('public'): {
             'onCreate': eadb_link_index
-        }
-    },
-    exclude_tables = [
-        '{}.eadb_changelog'.format(schema),
-        '{}.eadb_table_sql_changelog'.format(schema),
-        '{}.eadb_rights'.format(schema)
-    ]
-)
-#Extracts File-Links from EAS-Server
-easydb.migration.extract.eas_to_source(
-    name=instanz,
-    url="localhost/eas",#ususallay instanz-url.domain/eas or localhost/eas if executed on the same machine
-    instance=eas_instanz,
-    eas_versions = {
-       'original': ['url']#can be changed to store all asset files in data blob, but for migration URLs are working fine
-    }
-)
+            }
+        },
+        exclude_tables = [
+            '{}.eadb_changelog'.format('public'),
+            '{}.eadb_table_sql_changelog'.format('public'),
+            '{}.eadb_rights'.format('public')
+            ]
+        )
 
-easydb.migration.extract.__commit_source()
+    if eas_versions is not None:
+        extract.eas_to_source(
+            name=name,
+            url=eas_url,
+            instance=eas-instance,
+            eas_versions=eas_versions
+            )
+
+    extract.__commit_source()
+
+if args.mode=="export":
+    print("Much to do little time")
