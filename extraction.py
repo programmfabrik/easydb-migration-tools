@@ -25,18 +25,20 @@ migration_parser.add_argument('--easydb_sqlite_file',                   help='Fi
 migration_parser.add_argument('--easydb_eas_url',                       help='URL for easydb-EAS-Server')
 migration_parser.add_argument('--easydb_eas_instance',                  help='Instance-Name on EAS-Server')
 migration_parser.add_argument('--source', default='source.db',          help='Source name and directory (Default: ./source.db)')
+migration_parser.add_argument('--init', action='store_true',            help='If set, existing files will be purged')
 
 export_parser=subparsers.add_parser('ez_export', help="Export Data from easyDB to sqlite or mySQL")
-export_parser.add_argument('--auto_fetch', nargs=3,                  help='Fetch Server Information from URL , usage: "--auto_fetch URL login password"')
+export_parser.add_argument('--auto_fetch', nargs=3,                     help='Fetch Server Information from URL , usage: "--auto_fetch URL login password"')
 export_parser.add_argument('--name_in_source',                          help='Name preceding schema and table names in Source, e.g. if export -> export.public.table')
 export_parser.add_argument('--easydb_pg_dsn',                           help='DSN for PostgreSQL')
-export_parser.add_argument('--easydb_pg_schema', default='public',       help='Schema for pg-database, default = "public"')
+export_parser.add_argument('--easydb_pg_schema', default='public',      help='Schema for pg-database, default = "public"')
 export_parser.add_argument('--easydb_pg_tables', nargs='*', default=[], help='Select Tables for Export from postgresql')
 export_parser.add_argument('--easydb_eas_url',                          help='URL for EAS-Server')
 export_parser.add_argument('--easydb_eas_instance',                     help='Instance-Name on EAS-Server')
 export_parser.add_argument('--easydb_assets',  nargs='*', default=[],   help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
 export_parser.add_argument('-o', '--output', default='dump.db',         help='Sqlite-Dump name and directory (Default: ./dump.db)')
 export_parser.add_argument('--mySQL', action='store_true',              help='If set, Source will be dumped to mySQL file')
+export_parser.add_argument('--init', action='store_true',               help='If set, existing files will be purged')
 
 import_parser=subparsers.add_parser('file_import', help="Add to Source from other files")
 import_parser.add_argument('--name_in_source',                          help='Name preceding schema and table names in Source, e.g. if export -> export.public.table')
@@ -45,8 +47,8 @@ import_parser.add_argument('--XML', nargs='*', default=[],              help='Fi
 import_parser.add_argument('--CSV', nargs='*', default=[],              help='Filename for CSV')
 import_parser.add_argument('-o', '--output', default='dump.db',         help='Sqlite-Dump name and directory (Default: ./dump.db)')
 import_parser.add_argument('--mySQL', action='store_true',              help='If set, Source will be dumped to mySQL file in same directory and with the same filename')
+import_parser.add_argument('--init', action='store_true',               help='If set, existing files will be purged')
 
-argparser.add_argument('--init', action='store_true',     help='If set, existing files will be purged')
 
 args = argparser.parse_args()
 
@@ -205,13 +207,54 @@ if args.mode=="ez_export":
 
     extract.__commit_source()
 
+    if mySQL:
+            easydb.migration.extract.dump_mysql(
+                output=args.output
+            )
+
 
 ##FILE-IMPORT##################################################################
 if args.mode=="file_import":
 
+    extract.prepare_source(args.output, init=args.init)
+    if args.name_in_source is not None:
+        name = args.name_in_source
+
     source_file=args.output
 
-    extract.__pg_init()
-    extract.__sqlite_init()
-
-    extract.prepare_source(source_file, init=args.init)
+    if args.sqlite !=[]:
+        i=1
+        for sqlite_file in args.sqlite:
+            extract.__sqlite_init()
+            logging.info("Adding sqlite to Source")
+            extract.sqlite_to_source(
+                name="sqlite."+str(i)+"."+name,
+                filename=sqlite_file
+                )
+            i+=1
+    #BASEDIR??
+    if args.XML !=[]:
+        i=1
+        for xml_file in args.XML:
+            logging.info("Adding XML to Source--Not ready for now. Skipped")
+            break
+            extract.xml_to_source(
+                name="xml."+str(i)+"."+name,
+                filename=xml_file,
+                basedir=""
+                )
+            i+=1
+    if args.CSV !=[]:
+        i=1
+        for csv_file in args.CSV:
+            logging.info("Adding XML to Source--Not ready for now. Skipped")
+            break
+            extract.xml_to_source(
+                name="csv."+str(i)+"."+name,
+                filename=csv_file,
+                )
+            i+=1
+    if mySQL:
+            easydb.migration.extract.dump_mysql(
+                output=args.output
+            )
