@@ -4,7 +4,7 @@
 import sys
 import argparse
 import os
-import extract
+import easydb.migration.extract
 import requests
 import json
 import logging
@@ -26,19 +26,26 @@ migration_parser.add_argument('--easydb_eas_url',                       help='UR
 migration_parser.add_argument('--easydb_eas_instance',                  help='Instance-Name on EAS-Server')
 migration_parser.add_argument('--source', default='source.db',          help='Source name and directory (Default: ./source.db)')
 
-export_parser=subparsers.add_parser('export', help="Set Export Mode to dump selected data to sqlite")
+export_parser=subparsers.add_parser('ez_export', help="Export Data from easyDB to sqlite or mySQL")
 export_parser.add_argument('--pg_dsn',                                  help='DSN for PostgreSQL')
 export_parser.add_argument('--pg_tables', nargs='*', default=[],        help='Select Tables for Export from postgresql')
-export_parser.add_argument('--asset',  nargs='*', default=[],           help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
-export_parser.add_argument('--sqlite_file',                             help='Filename for SQLite Database')
 export_parser.add_argument('--eas_url',                                 help='URL for EAS-Server')
 export_parser.add_argument('--eas_instance',                            help='Instance-Name on EAS-Server')
-export_parser.add_argument('-o', '--output', default='dump.db',          help='Sqlite-Dump name and directory (Default: ./dump.db)')
+export_parser.add_argument('--assets',  nargs='*', default=[],          help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
+export_parser.add_argument('-o', '--output', default='dump.db',         help='Sqlite-Dump name and directory (Default: ./dump.db)')
+export_parser.add_argument('--mySQL', action='store_true',              help='If set, Source will be dumped to mySQL file')
 
-argparser.add_argument('--init', action='store_true',                   help='If set, existing files will be purged')
+import_parser=subparsers.add_parser('file_import', help="Add to Source from other files")
+export_parser.add_argument('--sqlite', nargs='*', default=[],           help='Filename for SQLite Database')
+export_parser.add_argument('--XML', nargs='*', default=[],              help='Filename for XML')
+export_parser.add_argument('--CSV', nargs='*', default=[],              help='Filename for CSV')
+export_parser.add_argument('-o', '--output', default='dump.db',         help='Sqlite-Dump name and directory (Default: ./dump.db)')
+export_parser.add_argument('--mySQL', action='store_true',              help='If set, Source will be dumped to mySQL file in same directory and with the same filename')
+
+argparser.add_argument('--init', action='store_true',     help='If set, existing files will be purged')
 
 args = argparser.parse_args()
-
+print(args)
 if args.mode=="migration":
 
     if args.auto_fetch is not None:
@@ -74,7 +81,7 @@ if args.mode=="migration":
     extract.__pg_init()
     extract.__sqlite_init()
 
-    extract.prepare_source(source_file, init=True)
+    extract.prepare_source(source_file, init=args.init)
 
     eadb_link_index = """
     CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
@@ -116,5 +123,20 @@ if args.mode=="migration":
 
     extract.__commit_source()
 
-if args.mode=="export":
-    print("Much to do little time")
+if args.mode=="ez_export":
+
+    source_file=args.output
+
+    extract.__pg_init()
+    extract.__sqlite_init()
+
+    extract.prepare_source(source_file, init=args.init)
+
+if args.mode=="file_import":
+
+    source_file=args.output
+
+    extract.__pg_init()
+    extract.__sqlite_init()
+
+    extract.prepare_source(source_file, init=args.init)
