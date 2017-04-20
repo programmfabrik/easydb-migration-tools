@@ -1618,8 +1618,10 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
     global source_conn
     schema = __sqlite_get_schema(source_conn)
     sql = source_conn.cursor()
-
-    out = open(output, "wb")
+    if output=="-":
+        out = sys.stdout
+    else:
+        out = open(output, "wb")
 
     tables = schema["tables"]
     def write_out(s):
@@ -1718,6 +1720,6 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
 
 
     write_out("COMMIT;\n")
-    out.close()
+    if out!=sys.stdout:
+        out.close()
     print "Notice: Dumped current sqlite to mysql file: ", output
-

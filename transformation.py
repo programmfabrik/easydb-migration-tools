@@ -139,6 +139,7 @@ tables.append(
         """\
         SELECT
             id as __source_unique_id,
+            "collection" as type,
             fk_father_id as __parent_id,
             name as "displayname:de-DE",
             beschreibung as "description:de-DE",

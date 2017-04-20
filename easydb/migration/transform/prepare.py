@@ -124,6 +124,7 @@ class DestinationSchema(object):
         self._add_l10n_columns(table_def, 'description')
         self._add_column(table_def, '__parent_id', 'text')
         self._add_column(table_def, '__owner', 'text')
+        self._add_column(table_def, '__type', 'text')
         self._add_column(table_def, '__owner_id', 'text')
         self._add_column(table_def, '__user_collection_id', 'text')
         self.db_schema.tables.append(table_def)
