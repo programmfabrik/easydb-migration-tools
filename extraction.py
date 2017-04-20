@@ -13,11 +13,11 @@ import logging.config
 logging.basicConfig(level=logging.INFO)
 
 
-argparser = argparse.ArgumentParser(description='Extraction')
+argparser = argparse.ArgumentParser(description='data2qlite')
 
-subparsers=argparser.add_subparsers(help="Set Export or Migration Mode", dest='mode')
+subparsers=argparser.add_subparsers(help="Set Mode", dest='mode')
 
-migration_parser=subparsers.add_parser('migration', help="Set Migration Mode to create Source for Migration")
+migration_parser=subparsers.add_parser('easydb4', help="Set Migration Mode to create Source for Migration")
 migration_parser.add_argument('--auto_fetch', nargs=3,                  help='Fetch Server Information from URL, usage: "--auto_fetch URL login password" If set no other arguments have to be set')
 migration_parser.add_argument('--name_in_source',                       help='Name preceding schema and table names in Source, e.g. if export -> export.public.table')
 migration_parser.add_argument('--easydb_pg_dsn',                        help='DSN for easydb-PostgreSQL Server')
@@ -27,7 +27,7 @@ migration_parser.add_argument('--easydb_eas_instance',                  help='In
 migration_parser.add_argument('--source', default='source.db',          help='Source name and directory (Default: ./source.db)')
 migration_parser.add_argument('--init', action='store_true',            help='If set, existing files will be purged')
 
-export_parser=subparsers.add_parser('ez_export', help="Export Data from easyDB to sqlite or mySQL")
+export_parser=subparsers.add_parser('database', help="Export Data from easyDB to sqlite or mySQL")
 export_parser.add_argument('--auto_fetch', nargs=3,                     help='Fetch Server Information from URL , usage: "--auto_fetch URL login password"')
 export_parser.add_argument('--name_in_source',                          help='Name preceding schema and table names in Source, e.g. if export -> export.public.table')
 export_parser.add_argument('--easydb_pg_dsn',                           help='DSN for PostgreSQL')
@@ -40,7 +40,7 @@ export_parser.add_argument('-o', '--output', default='dump.db',         help='Sq
 export_parser.add_argument('--mySQL', action='store_true',              help='If set, Source will be dumped to mySQL file')
 export_parser.add_argument('--init', action='store_true',               help='If set, existing files will be purged')
 
-import_parser=subparsers.add_parser('file_import', help="Add to Source from other files")
+import_parser=subparsers.add_parser('file', help="Add to Source from other files")
 import_parser.add_argument('--name_in_source',                          help='Name preceding schema and table names in Source, e.g. if export -> export.public.table')
 import_parser.add_argument('--sqlite', nargs='*', default=[],           help='Filename for SQLite Database')
 import_parser.add_argument('--XML', nargs='*', default=[],              help='Filename for XML')
