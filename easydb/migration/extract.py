@@ -139,7 +139,8 @@ def __pg_get_schema(conn,
         "name": "TEXT",
         "boolean": "NUMERIC",
         "numeric": "decimal",
-        "ARRAY": "list"
+        "ARRAY": "list",
+        "uuid": "TEXT"
         }
 
 
@@ -1115,7 +1116,6 @@ def pg_to_source(
     include_schema_in_table_name=True,
     exclude_tables=None
     ):
-
     conn = psycopg2.connect(dsn)
     schema = __pg_get_schema(conn=conn, schema_name=schema_name, include_tables=include_tables, include_schema_in_table_name=include_schema_in_table_name, include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
     __create_schema_in_source(name=name, schema=schema)

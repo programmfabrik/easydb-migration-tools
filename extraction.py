@@ -33,6 +33,13 @@ pg_parser.add_argument('--dsn',                                                 
 pg_parser.add_argument('--schema', default='public',                            help='Schema for pg-database, default = "public"')
 pg_parser.add_argument('--tables', nargs='*', default=[],                       help='Select Tables for Export from postgresql')
 
+pg_parser=subparsers.add_parser('mysql', help="Add to Source from mySQL")
+pg_parser.add_argument('--host',                                                help='mySQL host')
+pg_parser.add_argument('--dbname',                                              help='DB in mySQL host')
+pg_parser.add_argument('--username',                                            help='Username for mySQL-DB')
+pg_parser.add_argument('--password',                                            help='PW for mySQL-User')
+pg_parser.add_argument('--tables', nargs='*', default=[],                       help='Select Tables for Export from postgresql')
+
 import_parser=subparsers.add_parser('file', help="Add to Source from other files")
 import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
 import_parser.add_argument('--XML', nargs='*', default=[],                      help='Filename for XML')
@@ -132,34 +139,63 @@ if args.mode=="easydb4":
             eas_versions=eas_versions
             )
 
-##EZ-EXPORT#####################################################################
+##PG############################################################################
 if args.mode=="pg":
 
     include_tables={}
     for table in args.tables:
         include_tables[table]={}
 
-
     if args.dsn is not None:
-        if include_tables is not None:
+        if include_tables != {}:
             extract.pg_to_source(
                 name=args.name,
                 schema_name=args.schema,
                 dsn=args.dsn,
                 include_tables_exclusive=True,
-                include_tables = include_tables,
+                include_tables = include_tables
                 )
         else:
             extract.pg_to_source(
-                name=name,
+                name=args.name,
                 schema_name=args.schema,
-                dsn=args.pg_dsn,
-                include_tables_exclusive=False,
+                dsn=args.dsn,
+                include_tables_exclusive=False
                 )
     else:
         logging.warning('No Postgres-DSN provided. Program will terminate now')
         sys.exit(0)
 
+##mySQL#########################################################################
+if args.mode="mysql":
+    include_tables={}
+    for table in args.tables:
+        include_tables[table]={}
+
+    if args.host is not None and args.dbname is not None and args.username is not None and args.password is not None:
+        if include_tables != {}:
+            extract.mysql_to_source(
+                name=args.name,
+                host=args.host,
+                db=args.dbname,
+                user=args.username,
+                password=args.password,
+                include_tables_exclusive=True,
+                include_tables = include_tables
+                )
+        else:
+            extract.pg_to_source(
+                name=args.name,
+                host=args.host,
+                db=args.dbname,
+                user=args.username,
+                password=args.password,
+                dsn=args.dsn,
+                include_tables_exclusive=False
+                )
+    else:
+        logging.warning('Information about mySQL-Server is insufficient. Program will terminate now')
+        sys.exit(0)
 ##FILE-IMPORT##################################################################
 if args.mode=="file":
 
