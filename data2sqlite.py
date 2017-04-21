@@ -21,7 +21,7 @@ argparser.add_argument('--dump_mysql',                                          
 
 subparsers=argparser.add_subparsers(help="Set Datasources", dest='mode')
 
-migration_parser=subparsers.add_parser('easydb4', help="Set Migration Mode to create Source for Migration")
+migration_parser=subparsers.add_parser('easydb4',                               help="Set Migration Mode to create Source for Migration")
 migration_parser.add_argument('--config', nargs=3,                              help='Fetch Server Information from URL, usage: "--auto_fetch URL login password" If set no other arguments have to be set')
 migration_parser.add_argument('--pg_dsn',                                       help='DSN for easydb-PostgreSQL Server, must be sperated by spaces')
 migration_parser.add_argument('--sqlite_file',                                  help='Filename for easydb_SQLite Database')
@@ -95,9 +95,11 @@ if args.mode=="easydb4":
 
     if args.eas_versions != []:
        eas_versions={}
-       for version in args.eas_version:
+       for version in args.eas_versions:
            version_split=version.split(":")
-           if eas_versions[version_split[0]] is None:
+           if eas_versions=={}:
+               eas_versions[version_split[0]]=[version_split[1]]
+           elif eas_versions[version_split[0]] is None:
                eas_versions[version_split[0]]=[version_split[1]]
            else:
                eas_versions[version_split[0]].append(version_split[1])
@@ -132,7 +134,7 @@ if args.mode=="easydb4":
         )
 
     if eas_versions is not None:
-        ogging.info("Adding to Source from EAS")
+        logging.info("Adding to Source from EAS")
         extract.eas_to_source(
             name=name,
             url=eas_url,

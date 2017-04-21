@@ -19,10 +19,12 @@ class Collection(object):
         self.owner = None
         self.owner_id=None
         self.user_collection_id=None
+        self.type=None
 
     def to_json(self):
         if self.user_collection_id is not None:
             js = {
+                '_basetype': self.type,
                 'collection': {
                     '_id': self.id,
                     '_version': self.version,
@@ -41,6 +43,7 @@ class Collection(object):
                 }
         if self.user_collection_id is None:
             js = {
+                '_basetype': self.type,
                 'collection': {
                     '_id': self.id,
                     '_version': self.version,
@@ -79,4 +82,6 @@ class Collection(object):
                 collection.owner_id=value
             if key == '__user_collection_id':
                 collection.user_collection_id=value
+            if key == '__type':
+                collection.type = value
         return collection
