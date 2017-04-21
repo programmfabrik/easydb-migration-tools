@@ -38,7 +38,7 @@ pg_parser=subparsers.add_parser('mysql', help="Add to Source from mySQL")
 pg_parser.add_argument('--host',                                                help='mySQL host')
 pg_parser.add_argument('--dbname',                                              help='DB in mySQL host')
 pg_parser.add_argument('--username',                                            help='Username for mySQL-DB')
-pg_parser.add_argument('--password',                                            help='PW for mySQL-User')
+pg_parser.add_argument('--password', default='',                                help='PW for mySQL-User')
 pg_parser.add_argument('--tables', nargs='*', default=[],                       help='Select Tables for Export from postgresql')
 
 import_parser=subparsers.add_parser('file', help="Add to Source from other files")
@@ -173,25 +173,24 @@ if args.mode=="mysql":
     for table in args.tables:
         include_tables[table]={}
 
-    if args.host is not None and args.dbname is not None and args.username is not None and args.password is not None:
+    if args.host is not None and args.dbname is not None and args.username is not None:
         if include_tables != {}:
             extract.mysql_to_source(
                 name=args.name,
                 host=args.host,
                 db=args.dbname,
                 user=args.username,
-                password=args.password,
+                passwd=args.password,
                 include_tables_exclusive=True,
                 include_tables = include_tables
                 )
         else:
-            extract.pg_to_source(
+            extract.mysql_to_source(
                 name=args.name,
                 host=args.host,
                 db=args.dbname,
                 user=args.username,
-                password=args.password,
-                dsn=args.dsn,
+                passwd=args.password,
                 include_tables_exclusive=False
                 )
     else:
