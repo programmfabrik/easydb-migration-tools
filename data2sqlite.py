@@ -8,6 +8,7 @@ import easydb.migration.extract as extract
 import json
 import logging
 import logging.config
+import requests
 
 logging.basicConfig(level=logging.INFO)
 
@@ -46,7 +47,7 @@ import_parser.add_argument('--XML', nargs='*', default=[],                      
 import_parser.add_argument('--CSV', nargs='*', default=[],                      help='Filename for CSV')
 
 args = argparser.parse_args()
-print(args)
+
 extract.__pg_init()
 extract.__sqlite_init()
 extract.prepare_source(args.target, init=args.init)
@@ -70,29 +71,29 @@ if args.mode=="easydb4":
 
     if args.pg_dsn is not None:
         pg_dsn = args.pg_dsn
-    else:
+    if pg_dsn is None:
         logging.warning('No Postgres-DSN provided. Program will terminate now')
         sys.exit(0)
 
     if args.sqlite_file:
         sqlite_file = args.sqlite_file
-    else:
+    if sqlite_file is None:
         logging.warning('No sqlite_file provided. Program will terminate now')
         sys.exit(0)
 
     if args.eas_url is not None:
         eas_url = args.eas_url
-    else:
+    if eas_url is None:
         logging.warning('No eas-server provided. Program will terminate now')
         sys.exit(0)
 
     if args.eas_instance is not None:
         eas_instance =  args.eas_instance
-    else:
+    if eas_url is None:
         logging.warning('No eas-instance provided. Program will terminate now')
         sys.exit(0)
 
-    if args.eas_version != []:
+    if args.eas_versions != []:
        eas_versions={}
        for version in args.eas_version:
            version_split=version.split(":")
@@ -112,7 +113,7 @@ if args.mode=="easydb4":
         filename=sqlite_file
         )
 
-    ogging.info("Adding to Source from pg")
+    logging.info("Adding to Source from pg")
     extract.pg_to_source(
         name=name,
         schema_name='public',
@@ -167,7 +168,7 @@ if args.mode=="pg":
         sys.exit(0)
 
 ##mySQL#########################################################################
-if args.mode="mysql":
+if args.mode=="mysql":
     include_tables={}
     for table in args.tables:
         include_tables[table]={}
@@ -206,29 +207,30 @@ if args.mode=="file":
             extract.__sqlite_init()
             logging.info("Adding sqlite to Source")
             extract.sqlite_to_source(
-                name=name,
+                name=args.name,
                 filename=sqlite_file
                 )
 
     if args.XML !=[]:
         paths=[]
-        for sqlite_file in args.sqlite:
-            paths.append(os.path.abspath(sqlite_file))
+        for xml_file in args.XML:
+            paths.append(os.path.abspath(xml_file))
         basedir=""
+        contains = True
+        i=0
         for char in paths[0]:
-            contains = True
             for path in paths:
                 if path[i] != char:
                     contains=False
             if contains == False:
                 break
             else:
-                basedir.append(char)
-        basedir_split = basedir.split("/")[1:len(string.split("/"))-1]
+                basedir+=char
+            i+=1
+        basedir_split = basedir.split("/")[1:len(basedir.split("/"))-1]
         basedir = "/"
         for elem in basedir_split:
             basedir+=(elem+"/")
-            basedir+="/"
 
         for xml_file in args.XML:
             logging.info("Adding XML to Source")

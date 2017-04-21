@@ -140,7 +140,8 @@ def __pg_get_schema(conn,
         "boolean": "NUMERIC",
         "numeric": "decimal",
         "ARRAY": "list",
-        "uuid": "TEXT"
+        "uuid": "TEXT",
+        "double precision": "text"##SUBOPTIMAL
         }
 
 
