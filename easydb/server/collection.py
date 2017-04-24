@@ -24,22 +24,22 @@ class Collection(object):
     def to_json(self):
         if self.user_collection_id is not None:
             js = {
-                '_basetype': self.type,
+                '_basetype': 'collection',
                 'collection': {
                     '_id': self.id,
                     '_version': self.version,
                     'displayname': self.displayname,
                     'description': self.description,
                     '_id_parent': self.user_collection_id,
-                    'children_allowed': True
+                    'children_allowed': True,
+                    'type': self.type
                     },
-                    '_owner': {
+                '_owner': {
                     '_basetype': 'user',
-                    'user':
-                        {
-                        '_id': self.owner_id
-                        }
+                    'user':{
+                    '_id': self.owner_id
                     }
+                }
                 }
         if self.user_collection_id is None:
             js = {
@@ -50,9 +50,10 @@ class Collection(object):
                     'displayname': self.displayname,
                     'description': self.description,
                     '_id_parent': self.parent_id,
-                    'children_allowed': True
+                    'children_allowed': True,
+                    'type': self.type
                     },
-                    '_owner': {
+                '_owner': {
                     '_basetype': 'user',
                     'user':
                         {

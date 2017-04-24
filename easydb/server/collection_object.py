@@ -24,6 +24,7 @@ class Collection_Object(object):
                 "_global_object_id": str(self.object_goid)
                 }
             ]}
+        print("Collection_Object to JSON: \n")
         print(js)
         return js
 

@@ -129,7 +129,6 @@ def load_collections(
     logger.info('SET COLLECTION OWNERS IN DESTINATION')
 
     for user in users:
-        logger.debug('FOR SCHLEIFE')
         owner='user_'+user['login']
         sql='UPDATE "easydb.ez_collection" SET "__owner_id" = {}, __owner="{}" WHERE "__owner"="{}"'.format(user['__easydb_id'],user['login'],owner)
         db.execute(sql)
@@ -185,14 +184,16 @@ def build_get_collections_statement(languages):
     return sql_get_collections.format(s)
 
 ##ES müssen erst alle easydb-Objekte erstellt werden, bevor die Collections/Mappen gefüllt werden können
+
 def load_collection_objects(
     source,
     destination,
     ezapi,
     batch_size):
+    #logger.info('update collection_objects goid')
+
 
     logger.info('load collection_objects')
-
     loop = True
     while(loop):
         db = destination.get_db()

@@ -173,7 +173,7 @@ class EasydbAPI(object):
             self.logger.info("POST {}".format(call))
             response_object = self.post(call, collection_object.to_json())
             self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
-            collection_object.uploaded = "yes"
+            collection_object.uploaded = 'yes'
 
     @authenticated
     def create_groups(self, groups):
