@@ -67,7 +67,7 @@ if args.mode=="easydb4":
 
         eas_url = ez_conf['EAS_INTERNAL_URL']
 
-        eas_instance =  ez_conf['INSTANCE']
+        eas_instance = ez_conf['INSTANCE']
 
     if args.pg_dsn is not None:
         pg_dsn = args.pg_dsn
@@ -94,21 +94,24 @@ if args.mode=="easydb4":
         sys.exit(0)
 
     if args.eas_versions != []:
-       eas_versions={}
-       for version in args.eas_versions:
-           version_split=version.split(":")
-           if eas_versions=={}:
-               eas_versions[version_split[0]]=[version_split[1]]
-           elif eas_versions[version_split[0]] is None:
-               eas_versions[version_split[0]]=[version_split[1]]
-           else:
-               eas_versions[version_split[0]].append(version_split[1])
+        eas_versions={}
+        for version in args.eas_versions:
+            split = version.split(":")
+            if split[0] in eas_versions:
+                if split[1] not in eas_verions[split[0]]:
+                    eas_verions[split[0]].append(split[1])
+            else:
+                eas_versions[split[0]]=[split[1]]
+
+    print("eas-info: \n")
+    print(eas_instance)
+    print(eas_url)
+    print(eas_versions)
 
     eadb_link_index = """
     CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
     ON "%TABLE_NAME_IN_SOURCE%" (from_table_id, to_table_id, from_id, to_id);
     """
-
     logging.info("Adding to Source from sqlite")
     extract.sqlite_to_source(
         name=name,
@@ -133,12 +136,12 @@ if args.mode=="easydb4":
             ]
         )
 
-    if eas_versions is not None:
+    if args.eas_versions is not None:
         logging.info("Adding to Source from EAS")
         extract.eas_to_source(
             name=name,
             url=eas_url,
-            instance=eas-instance,
+            instance=eas_instance,
             eas_versions=eas_versions
             )
 

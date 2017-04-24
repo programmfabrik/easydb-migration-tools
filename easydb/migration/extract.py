@@ -17,6 +17,7 @@ import requests
 import chardet
 import csv
 import xml.parsers.expat
+import datetime
 
 source_conn = None
 
@@ -141,7 +142,7 @@ def __pg_get_schema(conn,
         "numeric": "decimal",
         "ARRAY": "list",
         "uuid": "TEXT",
-        "double precision": "REAL"	
+        "double precision": "REAL"
         }
 
 
@@ -173,10 +174,11 @@ def __pg_get_schema(conn,
                 }
 
         tb = schema["tables"][tn]
-        tb["columns"].append({
-                "name": column_name,
-                "type": data_type
-                })
+        if row[3] != "bytea":
+            tb["columns"].append({
+                    "name": column_name,
+                    "type": data_type
+                    })
 
     for (tn, tb) in schema["tables"].items():
 
@@ -1710,6 +1712,10 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
                             values.append(decode+"('"+chunk+"')")
                         else:
                             more_cmds.append("UPDATE \""+table_name+"\" SET \""+cn+"\" = \""+cn+"\"+"+decode+"('"+chunk+"') "+where_clause+";\n")
+                elif isinstance(item, long):
+                    values.append(str(item))
+                elif isinstance(item, datetime.datetime):
+                    values.append(str(item))
                 else:
                     print "Warning: Unable to insert item", table_name, type(item)
 
