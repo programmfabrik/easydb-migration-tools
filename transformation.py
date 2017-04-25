@@ -162,6 +162,7 @@ add_table(
         'sql':
         """\
         SELECT
+            "FALSE" as collection_type,
             id as __source_unique_id,
             name,
             name as "displayname:de-DE"

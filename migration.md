@@ -6,17 +6,17 @@ wenn die Rede von "Source" ist.
 Die Daten werden transformiert und in einer weiteren Datenbank Namens "destination.db" abgelegt, die im Weiteren als "Destination"
 bezeichnet wird.
 ## Extraction
-Um die Source-Datenbank zu erstellen muss der gesamte Inhalt des Git-Repos "easydb-tools-migration" auf den easydb4 Server geklont oder kopiert werden.
-Für die Erstellung von Source ist das Python-Skript "extraction.py" relevant. Hier müssen zunächst die Variablen "schema", "eas-instanz" und "instanz" gesetzt werden.
-Diese lassen sich am einfachsten über die "/ezadmin" Seite der easydb4 herausfinden. Alle weiteren Werte wie Verzeichnisse, etc. sind im Extraction-Skript
-auf übliche Werte gesetzt, müssen gegebenenfalls aber noch angepasst werden.
-In üblicher Konfiguration bezieht das Extraction-Skript strukturelle Information zu Tabellen und Schemas aus einer sqlite-Datenbank in "/opt/easydb/4.0/sql/sqlite/", Daten aus der Postgres-DB der easydb4 und links zu den zughörigen Assets vom EAS-Server. Weitere Quellen sind jedoch ebenfalls möglich. Das Skript "easydb/migration/extract.py" bietet dafür Methoden für unterschiedliche Quellen.
-Sind alle Instanzspezifischen Variablen angepasst, kann das Skript im Verzeichnis "easydb-tools-migration/easydb/" mit
+Um die Source-Datenbank zu erstellen muss der gesamte Inhalt des Git-Repos "easydb-tools-migration" auf den easydb4-Server geklont oder kopiert werden.
+Für die Erstellung von Source ist das Python-Tool "data2sqlite" relevant.
+Mit dem aufruf
 
-> ./extraction.py source/source.db
+>./data2sqlite -t source.db --init easydb4 --config http://easydb.url.com username password --eas_version original:url
 
-ausgeführt werden. Dies erzeugt Source im Unterverzeichnis "source". Dieses Verzeichnis muss vorher angelegt werden.
-Die Tabellen in Source werdne nach folgendem Prinzip benannt
+wird eine für die Migration taugliche sqlite Datenbank erzeugt. Für "http://easydb.url.com",
+"username" und "password" müssen, entsprechend der Verwendeten Instanz andere Werte übergeben werden.
+Der verwendete User braucht Root-Rechte in der Easydb.
+Die Verbindungsinformationen werde naus dem Webfrontend der easydb automatisch bezogen, können aber duch das manuelle Setzen von Argumenten überschrieben werden. Wenn dies nicht geschieht muss data2sqlite auf dem selben Server wie die easydb ausgeführt werden. Des weiteren könne nmit data2sqlite auch zusätzliche Quellen in Source geschrieben werdeb.
+Die Tabellen in Source werden nach folgendem Prinzip benannt
 
 >instanz.schema.tabellen-name
 
@@ -32,7 +32,7 @@ Um ersichtlich zu machen, welche Transformationen nötig sind, sollte zunächst 
 ausgeführt werden (am besten den easydb-root-user verwenden, das destination-directory muss vorher angelegt weren).
 
 Alle Tabellen der easydb4, die Migriert werden sollen, müssen mit einem Dictionary im Transformation-Skript
-beschrieben werdeb und dieses der Liste "tables" angehängt werden. Jedes Dictionary muss dabei folgende Form haben
+beschrieben werden und dieses der Liste "tables" angehängt werden. Jedes Dictionary muss dabei folgende Form haben
 
 ```python
 {
