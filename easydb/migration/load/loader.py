@@ -604,11 +604,12 @@ class Loader(object):
         self.ezapi.create_objects(objects_to_push)
         logger.info('[{0}] update destination'.format(self.objecttype.name))
         update_sql = 'update "easydb.{0}" set "__easydb_id" = ?, "__easydb_goid" = ? where "__source_unique_id" = ?'.format(self.objecttype.name)
-        for o in objects:
-            db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ?', o.global_object_id, o.source_id)
-            rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
-            if rows.rowcount != 1:
-                raise Exception('could not update easydb id')
+        if o.collection_type=="True":
+            for o in objects:
+                db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ?', o.global_object_id, o.source_id)
+                rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
+                if rows.rowcount != 1:
+                    raise Exception('could not update easydb id')
         logger.info('[{0}] push end'.format(self.objecttype.name))
 
     def _load_assets(self, db, object_id, column_def):

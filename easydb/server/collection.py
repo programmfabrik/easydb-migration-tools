@@ -43,7 +43,7 @@ class Collection(object):
                 }
         if self.user_collection_id is None:
             js = {
-                '_basetype': self.type,
+                '_basetype': 'collection',
                 'collection': {
                     '_id': self.id,
                     '_version': self.version,
@@ -61,6 +61,8 @@ class Collection(object):
                         }
                     }
                 }
+        print ("NEW COLLECTION:")
+        print(js)
         return js
 
     @staticmethod
