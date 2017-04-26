@@ -9,7 +9,7 @@ from easydb.server.datamodel import *
 
 class Object(object):
 
-    def __init__(self, objecttype, mask=None):
+    def __init__(self, objecttype, mask=None, collection_type=False):
         self.objecttype = objecttype
         self.mask = '_all_fields' if mask is None else mask
         self.id = None
@@ -20,6 +20,7 @@ class Object(object):
         self._parent_id = None
         self._pool_id = None
         self._tags = []
+        self.collection_type=collection_type
 
     def to_json(self, as_nested=False):
         js = {}
