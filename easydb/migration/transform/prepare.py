@@ -200,6 +200,7 @@ class DestinationSchema(object):
 
         self._add_column(table_def, '__mask', 'text')
         self._add_column(table_def, '__comment', 'text')
+        self._add_column(table_def, 'collection_type', 'text')
         if ot.pool_link:
             self._add_column(table_def, '__pool_id', 'text')
         if ot.is_hierarchical:
@@ -210,7 +211,6 @@ class DestinationSchema(object):
             table_def.constraints.append(easydb.server.datamodel.ForeignKeyConstraintDefinition(['__uplink_id'], ot.owned_by, ['__source_unique_id'], True))
         if ot.has_tags:
             self.db_schema.tables.append(self._tag_table(ot.name))
-        self._add_column(table_def, 'collection_type', 'text')
         for ez_column in ot.columns.values():
             self._load_column(table_def, ot, ez_column)
 
