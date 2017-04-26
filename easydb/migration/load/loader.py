@@ -190,8 +190,6 @@ def load_collection_objects(
     destination,
     ezapi,
     batch_size):
-    #logger.info('update collection_objects goid')
-
 
     logger.info('load collection_objects')
     loop = True
@@ -606,7 +604,7 @@ class Loader(object):
         update_sql = 'update "easydb.{0}" set "__easydb_id" = ?, "__easydb_goid" = ? where "__source_unique_id" = ?'.format(self.objecttype.name)
         if o.collection_type=="True":
             for o in objects:
-                db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ?', o.global_object_id, o.source_id)
+                db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ? and collection_type="True"', o.global_object_id, o.source_id)
                 rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
                 if rows.rowcount != 1:
                     raise Exception('could not update easydb id')

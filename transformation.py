@@ -162,7 +162,7 @@ add_table(
         'sql':
         """\
         SELECT
-            "FALSE" as collection_type,
+            "False/True" as collection_type,
             id as __source_unique_id,
             name,
             name as "displayname:de-DE"
@@ -178,7 +178,7 @@ add_table(
 )
 
 ################################################################################
-##COLLECTION OBJECTS
+##COLLECTION OBJECTS IN EASYDB 4 ENTWEDER EIGENE TABLE ODER EADB_LINKS
 tables.append(
     {
         'sql':
@@ -187,6 +187,7 @@ tables.append(
             id as __source_unique_id,
             lk_bild_id as object_id,
             lk_arbeitsmappe_id as collection_id
+            position
         FROM "{}.{}.{}"
         """.format(instanz,schema,collection_objects_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),

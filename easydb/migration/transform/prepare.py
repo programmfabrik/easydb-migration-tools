@@ -136,6 +136,7 @@ class DestinationSchema(object):
         self._add_column(table_def, 'object_id', 'text')
         self._add_column(table_def, 'object_goid', 'text')
         self._add_column(table_def, 'uploaded', 'text')
+        self._add_column(table_def, 'position', 'text')
         self.db_schema.tables.append(table_def)
 
     def _create_group(self):

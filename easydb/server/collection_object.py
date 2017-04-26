@@ -17,6 +17,7 @@ class Collection_Object(object):
         self.source_id = None
         self.uploaded=None
         self.object_goid=None
+        self.position=0
 
     def to_json(self):
         js = {'objects':[
@@ -41,4 +42,6 @@ class Collection_Object(object):
                 collection_object.uploaded=value
             if key == 'object_goid':
                 collection_object.object_goid=value
+            if key == 'positon':
+                collection_object.position=value
         return collection_object
