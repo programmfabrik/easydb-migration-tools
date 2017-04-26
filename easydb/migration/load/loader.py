@@ -516,6 +516,8 @@ class Loader(object):
 
     def build_object(self, db, rows):
         logger.debug('[{0}] build-object begin'.format(self.objecttype.name))
+        print("DÜLLE")
+        print(rows)
         o = Object(self.objecttype)#<---DA Plump ein SQL Query reinpfuschen!!
         o.source_id = rows[0]['f0']
         current_col = 0
@@ -954,7 +956,7 @@ and c."__source_unique_id" = ?
             return False
 
     def build_object(self, rows):
-        o = Object(self.objecttype, collection_type=)
+        o = Object(self.objecttype)
         o.source_id = rows[0]['f0']
         current_col = 0
         if not self.uplink_id:
