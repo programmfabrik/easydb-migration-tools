@@ -518,8 +518,6 @@ class Loader(object):
         o = Object(self.objecttype)
         o.source_id = rows[0]['f0']
         current_col = 0
-        o.collection_type=rows[0]['f1']
-        current_col += 1
         if not self.uplink_id:
             current_col += 1
             comment = rows[0]['f{0}'.format(current_col)]
