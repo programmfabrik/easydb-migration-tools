@@ -194,7 +194,7 @@ tables.append(
         'has_parent': False,
         'has_pool': False,
         'has_asset': False
-        'objects_table': ""
+        'objects_table': None
     }
 )
 
@@ -230,7 +230,7 @@ def final_touch(tables):
                 destination_c.execute(write)
         if table['has_pool']:
             destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
-        if table['collection_object']:
+        if table['objects_table']:
             rows = destination_c.execute('SELECT object_id, collection_id FROM "easydb.ez_collection__objects"')
             for row in rows:
                 destination_c.execute('UPDATE {0} SET collection_id = {1} WHERE __source_unique_id = {2}'.format(row[1], table.object_table, row[0]))
