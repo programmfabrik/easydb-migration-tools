@@ -9,7 +9,7 @@ from easydb.server.datamodel import *
 
 class Object(object):
 
-    def __init__(self, objecttype, mask=None:
+    def __init__(self, objecttype, mask=None):
         self.objecttype = objecttype
         self.mask = '_all_fields' if mask is None else mask
         self.id = None
