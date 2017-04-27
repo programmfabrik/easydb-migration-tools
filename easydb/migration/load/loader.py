@@ -64,8 +64,8 @@ def load(
             load_tags(source, destination, ezapi, batch_size)
         elif objecttype == 'ez_collection':
             load_collections(source, destination, ezapi, batch_size)
-        elif objecttype == 'ez_collection__objects':
-            load_collection_objects(source, destination, ezapi, batch_size)
+        #elif objecttype == 'ez_collection__objects':
+        #    load_collection_objects(source, destination, ezapi, batch_size)
         else:
             cnl = {}
             if objecttype in custom_nested_loaders:
