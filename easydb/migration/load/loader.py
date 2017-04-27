@@ -421,6 +421,7 @@ class Loader(object):
 
         self.tables.add(self.table_def.name)
         self.columns.add(self.tables.main(), '__source_unique_id', '_id')
+        self.columns.add(self.tables.main(), 'collection_type', 'collection_type')
         if self.uplink_id is None:
             self.columns.add(self.tables.main(), '__comment', '__comment')
         else:
