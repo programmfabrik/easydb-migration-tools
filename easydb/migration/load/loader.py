@@ -74,7 +74,6 @@ def load(
     if manage_source:
         source.close()
 
-# private
 
 # - pools
 
@@ -512,12 +511,12 @@ class Loader(object):
             sql_order = 'order by t0."__uplink_id"'
             args.append(self.uplink_id)
         sql = sql_load_objects.format(sql_columns, sql_main_table, sql_joins, sql_list(object_source_ids))
+        print("HÖRT HÖRT HAIDI HEYD")
+        print(sql)
         return db.execute(sql, *args)
 
     def build_object(self, db, rows):
         logger.debug('[{0}] build-object begin'.format(self.objecttype.name))
-        print("DÜLLE")
-        print(rows)
         o = Object(self.objecttype)#<---DA Plump ein SQL Query reinpfuschen!!
         o.source_id = rows[0]['f0']
         current_col = 0
