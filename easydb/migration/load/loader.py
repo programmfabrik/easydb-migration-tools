@@ -421,7 +421,6 @@ class Loader(object):
 
         self.tables.add(self.table_def.name)
         self.columns.add(self.tables.main(), '__source_unique_id', '_id')
-        self.columns.add(self.tables.main(), 'collection_type', 'collection_type')
         if self.uplink_id is None:
             self.columns.add(self.tables.main(), '__comment', '__comment')
         else:
@@ -512,15 +511,15 @@ class Loader(object):
             sql_order = 'order by t0."__uplink_id"'
             args.append(self.uplink_id)
         sql = sql_load_objects.format(sql_columns, sql_main_table, sql_joins, sql_list(object_source_ids))
-        print("HÖRT HÖRT HAIDI HEYD")
-        print(sql)
         return db.execute(sql, *args)
 
     def build_object(self, db, rows):
         logger.debug('[{0}] build-object begin'.format(self.objecttype.name))
-        o = Object(self.objecttype)#<---DA Plump ein SQL Query reinpfuschen!!
+        o = Object(self.objecttype)
         o.source_id = rows[0]['f0']
         current_col = 0
+        o.collection_type=rows[0]['f1']
+        current_col = 1
         if not self.uplink_id:
             current_col += 1
             comment = rows[0]['f{0}'.format(current_col)]
@@ -605,10 +604,17 @@ class Loader(object):
         logger.info('[{0}] update destination'.format(self.objecttype.name))
         update_sql = 'update "easydb.{0}" set "__easydb_id" = ?, "__easydb_goid" = ? where "__source_unique_id" = ?'.format(self.objecttype.name)
         for o in objects:
-            db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ?', o.global_object_id, o.source_id)
-            rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
+            rows = self.db.execute(update_sql, o.id, o.source_id)
             if rows.rowcount != 1:
                 raise Exception('could not update easydb id')
+
+        for o in objects:
+            if o.collection_type:
+                db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ?', o.global_object_id, o.source_id)
+                rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
+                if rows.rowcount != 1:
+                    raise Exception('could not update collection_object goids')
+                    
         logger.info('[{0}] push end'.format(self.objecttype.name))
 
     def _load_assets(self, db, object_id, column_def):
