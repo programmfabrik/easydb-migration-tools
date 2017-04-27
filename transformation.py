@@ -162,7 +162,6 @@ add_table(
         'sql':
         """\
         SELECT
-            "False/True" as collection_type,
             id as __source_unique_id,
             name,
             name as "displayname:de-DE"
@@ -195,11 +194,10 @@ tables.append(
         'has_parent': False,
         'has_pool': False,
         'has_asset': False
+        'objects_table': ""
     }
 )
 
-
-for table in tables:
 
     if table['has_asset']:#Write records with files attached
         job.extract_sql(table['sql'], table['table_to'], asset_columns=table['asset_columns'])
@@ -232,7 +230,12 @@ def final_touch(tables):
                 destination_c.execute(write)
         if table['has_pool']:
             destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
-    destination_conn.commit()
+        if table['collection_object']:
+            rows = destination_c.execute('SELECT object_id, collection_id FROM "easydb.ez_collection__objects"')
+            for row in rows:
+                destination_c.execute('UPDATE {0} SET collection_id = {1} WHERE __source_unique_id = {2}'.format(row[1], table.object_table, row[0]))
+    destination.commit
+
 
 def add_table(table):
     if(table.['has-asset'])
