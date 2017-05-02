@@ -197,8 +197,8 @@ def load_collection_objects(
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     for table in tables:
-        print(table)
-        columns = db.execute("PRAGMA table_info({})".format(table))
+        print(table['name'])
+        columns = db.execute("PRAGMA table_info({})".format(table['name']))
         for column in columns:
             name = column[1]
             if name == collection_id:
