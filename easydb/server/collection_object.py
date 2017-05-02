@@ -20,7 +20,7 @@ class Collection_Object(object):
         self.position=0
 
     def to_json(self):
-        js = json.dumps('{[{"_global_object_id": str(self.object_goid)]}')
+        js = [{ "_global_object_id": self.object_goid}]
         return js
 
     @staticmethod
@@ -32,8 +32,6 @@ class Collection_Object(object):
                 collection_object.source_id = value
             if key == 'collection_id':
                 collection_object.collection_id=value
-            if key =='collection_id_new':
-                collection_object.collection_id_new=value
             if key == 'object_id':
                 collection_object.object_id=value
             if key == 'uploaded':
