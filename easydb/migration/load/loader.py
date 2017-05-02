@@ -46,7 +46,7 @@ def load(
     tmp_asset_file='/tmp/easy5-migration-asset'):
     global logger
     logger = logging.getLogger('easydb.migration.load.loader')
-
+    collection_objects=False
     if objecttypes is None:
         raise Exception('Destination.load: objecttypes=None not yet implemented')
     manage_source = not source.is_open()
@@ -65,12 +65,15 @@ def load(
         elif objecttype == 'ez_collection':
             load_collections(source, destination, ezapi, batch_size)
         elif objecttype == 'ez_collection__objects':
-            load_collection_objects(source, destination, ezapi, batch_size)
+            collection_objects=True
         else:
             cnl = {}
             if objecttype in custom_nested_loaders:
                 cnl = custom_nested_loaders[objecttype]
             load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl, cnl)
+        if collection_objects:
+            load_collection_objects(source, destination, ezapi, batch_size)
+
     if manage_source:
         source.close()
 
@@ -194,6 +197,7 @@ def load_collection_objects(
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     for table in tables:
+        print("PRAGMA table_info({})".format(table))
         columns = db.execute("PRAGMA table_info({})".format(table))
         for column in columns:
             name = column[1]
