@@ -196,19 +196,20 @@ def load_collection_objects(
     db.open()
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+
     for table in tables:
-        print(table['name'])
-        columns = db.execute("PRAGMA table_info({})".format(table['name']))
+
+        if table['name'] == "easydb.ez_collection__objects":
+            continue
+        columns = db.execute('PRAGMA table_info("{}")'.format(table['name']))
         for column in columns:
-            name = column[1]
-            if name == collection_id:
-                rows = db.execute("SELECT __source_unique_id, __easydb_goid, collection_id FROM {}".format(table))
+            name = column['name']
+            if name == "collection_id":
+                rows = db.execute('SELECT __source_unique_id, __easydb_goid, collection_id FROM "{}"'.format(table['name']))
                 for row in rows:
-                    if collection_id is not None:
-                        db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = {} WHERE object_id = {}'.format(row[1], row[0]))
-    collections=db.execute('SELECT __source_unique_id, __easydb_id FROM "easydb.ez_collection"')
-    for collection in collections:
-        db.execute('UPDATE "easydb.ez_collection__objects" SET collection_id_new = {} WHERE collection_id = {}'.format(collection[1],collection[0]))
+                    if row['collection_id'] is not None:
+                        logger.info('Updating collection_objects GOID for type {}'.format(table['name']))
+                        db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = "{}" WHERE object_id = "{}"'.format(row['__easydb_goid'], row['__source_unique_id']))
     logger.info('load collection_objects')
     loop = True
     while(loop):
@@ -220,7 +221,7 @@ def load_collection_objects(
         job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)#
         for row in rows:
             loop = True
-            logger.info('load collection_objects row: {0}'.format(row))#
+            logger.info('load collection_objects row: {0}'.format(row))
             job.add(Collection_Object.from_row(row))
         job.finish()
         del(rows)
