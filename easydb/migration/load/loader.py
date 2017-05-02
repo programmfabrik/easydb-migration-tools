@@ -197,7 +197,7 @@ def load_collection_objects(
         columns = db.execute("PRAGMA table_info({})".format(table))
         for column in columns:
             name = column[1]
-            if name = collection_id:
+            if name == collection_id:
                 rows = db.execute("SELECT __source_unique_id, __easydb_goid, collection_id FROM {}".format(table))
                 for row in rows:
                     if collection_id is not None:
