@@ -189,6 +189,23 @@ def load_collection_objects(
     destination,
     ezapi,
     batch_size):
+    db = destination.get_db()
+    db.open()
+
+    tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    for table in tables:
+        columns = db.execute("PRAGMA table_info({})".format(table))
+        for column in columns:
+            name = column[1]
+            if name = collection_id:
+                rows = db.execute("SELECT __source_unique_id, __easydb_goid, collection_id FROM {}".format(table))
+                for row in rows:
+                    if collection_id is not None:
+                        db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = {} WHERE object_id = {}'.format(row[1], row[0]))
+    collections=db.execute('SELECT __source_unique_id, __easydb_id FROM "easydb.ez_collection"')
+    for collection in collections:
+        db.execute('UPDATE "easydb.ez_collection__objects" SET collection_id_new = {} WHERE collection_id = {}'.format(collection[1],collection[0])
+
 
     logger.info('load collection_objects')
     loop = True
@@ -606,13 +623,6 @@ class Loader(object):
             rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
             if rows.rowcount != 1:
                 raise Exception('could not update easydb id')
-
-        for o in objects:
-            if o.collection_type:
-                db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid=? WHERE object_id= ?', o.global_object_id, o.source_id)
-                rows = db.execute(update_sql, o.id, o.global_object_id, o.source_id)
-                if rows.rowcount != 1:
-                    raise Exception('could not update collection_object goids')
         logger.info('[{0}] push end'.format(self.objecttype.name))
 
     def _load_assets(self, db, object_id, column_def):

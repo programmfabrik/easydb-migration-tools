@@ -169,7 +169,7 @@ class EasydbAPI(object):
         if len(collection_objects) == 0:
             return
         for collection_object in collection_objects:
-            call="collection/objects/{}".format(collection_object.collection_id)
+            call="collection/objects/{}".format(collection_object.collection_id_new)
             self.logger.info("POST {}".format(call))
             response_object = self.post(call, collection_object.to_json())
             self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))

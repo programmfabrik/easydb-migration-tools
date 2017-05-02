@@ -61,6 +61,35 @@ logging.getLogger('easydb.migration.transform.source').setLevel('WARN')
 logging.getLogger('easydb.migration.transform.prepare').setLevel('INFO')
 logging.getLogger('easydb.migration.transform.extract').setLevel('INFO')
 
+def final_touch(tables):
+    source_conn = sqlite3.connect(job.source.filename)
+    source_c = source_conn.cursor()
+    destination_conn = sqlite3.connect(job.destination.filename)
+    destination_c = destination_conn.cursor()
+
+    destination_c.execute('DELETE FROM "easydb.ez_user" WHERE login="root"')#Delete root-user, to prevent conflicting unique_user constraint (root is default system-user)
+    destination_c.execute('INSERT INTO "easydb.ez_pool" ("__source_unique_id", "name:de-DE") VALUES ("STANDARD", "STANDARD_FALLBACK")')#create FALLBACK-pool for any records that have no pool
+
+    for table in tables:
+
+        if table['has_parent']:
+            req = 'SELECT fk_father_id, id FROM "' + table["table_from"] +'"'#get parent-ids from source
+            for row in source_c.execute(req):
+                if row[0]!=None:
+                    write = 'UPDATE "{0}" SET __parent_id = '.format(table["table_to"]) + str(row[0]) + ' WHERE __source_unique_id = ' + str(row[1])#set parent-id for lists with hierarchical-ordering
+                else:
+                    write = 'UPDATE "{0}" SET __parent_id = NULL'.format(table["table_to"]) + ' WHERE __source_unique_id = ' + str(row[1])#set no parent-id
+                destination_c.execute(write)
+        if table['has_pool']:
+            destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
+        if table['objects_table'] is not None:
+            destination_c.execute('SELECT object_id, collection_id FROM "easydb.ez_collection__objects"')
+            rows = destination_c.fetchall()
+            for row in rows:
+                query='UPDATE "{0}" SET collection_id = {1} WHERE __source_unique_id = {2}'.format(table["objects_table"], row[1], row[0])
+                destination_c.execute(query)
+    destination_conn.commit()
+
 #create destination.db
 job.prepare()
 ###Zur Erzeugung einer leeren Destination alles ab hier auskommentieren
@@ -157,7 +186,7 @@ tables.append(
 ################################################################################
 -------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
-add_table(
+tables.append(
     {
         'sql':
         """\
@@ -198,7 +227,7 @@ tables.append(
     }
 )
 
-
+for table in tables:
     if table['has_asset']:#Write records with files attached
         job.extract_sql(table['sql'], table['table_to'], asset_columns=table['asset_columns'])
 
@@ -207,38 +236,3 @@ tables.append(
 
 final_touch(tables)
 job.log_times()
-
-
-def final_touch(tables):
-    source_conn = sqlite3.connect(job.source.filename)
-    source_c = source_conn.cursor()
-    destination_conn = sqlite3.connect(job.destination.filename)
-    destination_c = destination_conn.cursor()
-
-    destination_c.execute('DELETE FROM "easydb.ez_user" WHERE login="root"')#Delete root-user, to prevent conflicting unique_user constraint (root is default system-user)
-    destination_c.execute('INSERT INTO "easydb.ez_pool" ("__source_unique_id", "name:de-DE") VALUES ("STANDARD", "STANDARD_FALLBACK")')#create FALLBACK-pool for any records that have no pool
-
-    for table in tables:
-
-        if table['has_parent']:
-            req = 'SELECT fk_father_id, id FROM "' + table["table_from"] +'"'#get parent-ids from source
-            for row in source_c.execute(req):
-                if row[0]!=None:
-                    write = 'UPDATE "{0}" SET __parent_id = '.format(table["table_to"]) + str(row[0]) + ' WHERE __source_unique_id = ' + str(row[1])#set parent-id for lists with hierarchical-ordering
-                else:
-                    write = 'UPDATE "{0}" SET __parent_id = NULL'.format(table["table_to"]) + ' WHERE __source_unique_id = ' + str(row[1])#set no parent-id
-                destination_c.execute(write)
-        if table['has_pool']:
-            destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
-        if table['objects_table']:
-            rows = destination_c.execute('SELECT object_id, collection_id FROM "easydb.ez_collection__objects"')
-            for row in rows:
-                destination_c.execute('UPDATE {0} SET collection_id = {1} WHERE __source_unique_id = {2}'.format(row[1], table.object_table, row[0]))
-    destination.commit
-
-
-def add_table(table):
-    if(table.['has-asset'])
-        source_values = table[table_from].split(".")
-        table[]=
-    tables.apend(table)

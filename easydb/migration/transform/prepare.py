@@ -133,6 +133,7 @@ class DestinationSchema(object):
         logger.debug('create collection_objects table')
         table_def = self._easydb_table('ez_collection__objects')
         self._add_column(table_def, 'collection_id', 'text')
+        self._add_column(table_def, 'collection_id_new', 'text')
         self._add_column(table_def, 'object_id', 'text')
         self._add_column(table_def, 'object_goid', 'text')
         self._add_column(table_def, 'uploaded', 'text')
