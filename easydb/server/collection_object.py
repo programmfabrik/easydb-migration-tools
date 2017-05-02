@@ -20,7 +20,13 @@ class Collection_Object(object):
         self.position=0
 
     def to_json(self):
-        js = json.dumps({"objects": [{ "_global_object_id": self.object_goid}]})
+        js = {
+        "objects": [
+                    {
+                    "_global_object_id": self.object_goid
+                    }
+                ]
+        }
         return js
 
     @staticmethod
