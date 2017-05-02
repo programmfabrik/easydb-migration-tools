@@ -20,9 +20,10 @@ class Collection_Object(object):
         self.position=0
 
     def to_json(self):
-        js = {'objects':[
+        js = {[
                 {
-                "_global_object_id": str(self.object_goid)
+                "_global_object_id": str(self.object_goid),
+                "_webfrontend_props": null
                 }
             ]}
         return js
