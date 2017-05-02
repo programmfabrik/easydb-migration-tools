@@ -173,6 +173,8 @@ class EasydbAPI(object):
                 continue
             call="collection/objects/push{}".format(collection_object.collection_id)
             self.logger.info("POST {}".format(call))
+            js = collection_object.to_json()
+            print(js)
             response_object = self.post(call, collection_object.to_json())
             self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
             collection_object.uploaded = 'yes'
