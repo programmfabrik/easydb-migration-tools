@@ -204,9 +204,7 @@ def load_collection_objects(
                         db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = {} WHERE object_id = {}'.format(row[1], row[0]))
     collections=db.execute('SELECT __source_unique_id, __easydb_id FROM "easydb.ez_collection"')
     for collection in collections:
-        db.execute('UPDATE "easydb.ez_collection__objects" SET collection_id_new = {} WHERE collection_id = {}'.format(collection[1],collection[0])
-
-
+        db.execute('UPDATE "easydb.ez_collection__objects" SET collection_id_new = {} WHERE collection_id = {}'.format(collection[1],collection[0]))
     logger.info('load collection_objects')
     loop = True
     while(loop):
