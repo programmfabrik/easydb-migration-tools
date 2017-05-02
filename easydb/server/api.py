@@ -169,7 +169,7 @@ class EasydbAPI(object):
         if len(collection_objects) == 0:
             return
         for collection_object in collection_objects:
-            if collection_object.object_goid=None:
+            if collection_object.object_goid==None:
                 continue
             call="collection/objects/{}".format(collection_object.collection_id)
             self.logger.info("POST {}".format(call))
