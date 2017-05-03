@@ -61,14 +61,13 @@ class Collection(object):
                         }
                     }
                 }
-        print ("NEW COLLECTION:")
-        print(js)
+
         return js
 
     @staticmethod
     def from_row(row):
         collection = Collection()
-
+        print(row)
         for key, value in row.items():
 
             if key.startswith('displayname:'):

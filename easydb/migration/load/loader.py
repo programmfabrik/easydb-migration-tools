@@ -218,10 +218,9 @@ def load_collection_objects(
         loop = False
         sql = 'SELECT * FROM "easydb.ez_collection__objects" where "uploaded" is null'
         rows = db.execute(sql)
-        job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)#
+        job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)
         for row in rows:
             loop = True
-            logger.info('load collection_objects row: {0}'.format(row))
             job.add(Collection_Object.from_row(row))
         job.finish()
         del(rows)
@@ -1077,7 +1076,6 @@ and c."__source_unique_id" = ?
             sql_order = 'order by t0."__uplink_id"'
             args.append(self.uplink_id)
         sql = 'select {0}\nfrom {1}\n{2}\nwhere {3}\n{4}'.format(sql_columns, sql_main_table, sql_joins, sql_where, sql_order)
-        print(sql)
         return self.db.execute(sql, *args)
 
     def prepare_query(self, source):
