@@ -226,6 +226,7 @@ def load_collection_objects(
         del(rows)
         db.close()
     db = destination.get_db()
+    db.open()
     presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "collection"')
     for presentation in presentations:
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ACC'.format(presentation["__easydb_id"]))
@@ -260,7 +261,7 @@ def load_collection_objects(
         call="collection/{}".format(presentation["__easydb_id"])
         response_object = self.post(call, collection_object.to_json())
         self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
-
+        db.close()
 
 
 def load_collection_objects_batch(batch, ezapi, db):
