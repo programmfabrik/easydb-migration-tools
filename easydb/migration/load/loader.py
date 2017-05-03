@@ -225,6 +225,43 @@ def load_collection_objects(
         job.finish()
         del(rows)
         db.close()
+    db = destination.get_db()
+    presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "collection"')
+    for presentation in presentations:
+        slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ACC'.format(presentation["__easydb_id"]))
+        frontend_props = """
+            {
+                "presentation": {
+                    "slides": [
+                        {
+                            "type": "start",
+                            "data": {
+                                "title": {},
+                                "info": ""
+                                }
+                        },
+                        """.format(presentation["displayname:de-DE"])
+        for slide in slide:
+            frontend_props+="""
+            {
+            "center": {
+                 "global_object_id": {}
+                 }
+            },
+            """.format(slide["object_goid"])
+        frontend_props+="""
+            ],
+            "slide_idx": 1,
+            "settings": {
+                "show_info": "no-info"
+                }
+            }
+        }"""
+        call="collection/{}".format(presentation["__easydb_id"])
+        response_object = self.post(call, collection_object.to_json())
+        self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
+
+
 
 def load_collection_objects_batch(batch, ezapi, db):
     ezapi.create_collection_objects(batch)
