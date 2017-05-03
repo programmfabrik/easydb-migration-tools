@@ -229,6 +229,7 @@ def load_collection_objects(
     db.open()
     presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "collection"')
     for presentation in presentations:
+        db.open()
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ACC'.format(presentation["__easydb_id"]))
         frontend_props = """
             {
