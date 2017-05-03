@@ -232,39 +232,39 @@ def load_collection_objects(
         db.open()
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
         name= presentation["displayname:de-DE"]
-        print("did nothing wrong" + name)
         frontend_props = """
             {{
-                "presentation": {{
-                    "slides": [
-                        {{
-                            "type": "start",
-                            "data": {{
-                                "title": {},
-                                "info": ""
-                                }}
-                        }},
-                        """.format(name)
-        for slide in slide:
+                "webfrontend_props":{{
+                    "presentation": {{
+                        "slides": [
+                            {{
+                                "type": "start",
+                                "data": {{
+                                    "title": {},
+                                    "info": ""
+                                    }}
+                                    }}""".format(name)
+        for slide in slides:
             goid = slide["object_goid"]
-            frontend_props+="""
+            frontend_props+=""",
             {{
             "center": {{
                  "global_object_id": {}
                  }}
-            }},
-            """.format(goid)
+            }}""".format(goid)
         frontend_props+="""
             ],
             "slide_idx": 1,
-            "settings": {{
+            "settings": {
                 "show_info": "no-info"
-                }}
-            }}
-        }}"""
+                }
+            }
+            }
+        }"""
         call="collection/{}".format(presentation["__easydb_id"])
-        response_object = self.post(call, collection_object.to_json())
-        self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
+        print(name +": "+ frontend_props)
+        response_object = ezapi.post(call, frontend_props)
+        logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
         db.close()
 
 
