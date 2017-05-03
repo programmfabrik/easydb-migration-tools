@@ -232,17 +232,17 @@ def load_collection_objects(
         db.open()
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
         frontend_props = """
-            {
-                "presentation": {
+            {0}
+                "presentation": {1}
                     "slides": [
                         {
                             "type": "start",
                             "data": {
-                                "title": {},
+                                "title": {2},
                                 "info": ""
                                 }
                         },
-                        """.format(presentation["displayname:de-DE"])
+                        """.format("{","{",presentation["displayname:de-DE"])
         for slide in slide:
             frontend_props+="""
             {
@@ -257,8 +257,8 @@ def load_collection_objects(
             "settings": {
                 "show_info": "no-info"
                 }
-            }
-        }"""
+            {0}
+        {1}""".format("{","{")
         call="collection/{}".format(presentation["__easydb_id"])
         response_object = self.post(call, collection_object.to_json())
         self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
