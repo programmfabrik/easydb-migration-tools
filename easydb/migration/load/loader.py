@@ -231,6 +231,8 @@ def load_collection_objects(
     for presentation in presentations:
         db.open()
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
+        name= presentation["displayname:de-DE"]
+        print("did nothing wrong" + name)
         frontend_props = """
             {0}
                 "presentation": {1}
@@ -242,15 +244,16 @@ def load_collection_objects(
                                 "info": ""
                                 }
                         },
-                        """.format("{","{",presentation["displayname:de-DE"])
+                        """.format("{","{",name)
         for slide in slide:
+            goid = slide["object_goid"]
             frontend_props+="""
             {
             "center": {
                  "global_object_id": {}
                  }
             },
-            """.format(slide["object_goid"])
+            """.format(goid)
         frontend_props+="""
             ],
             "slide_idx": 1,
