@@ -234,34 +234,34 @@ def load_collection_objects(
         name= presentation["displayname:de-DE"]
         print("did nothing wrong" + name)
         frontend_props = """
-            {0}
-                "presentation": {1}
+            {{
+                "presentation": {{
                     "slides": [
-                        {
+                        {{
                             "type": "start",
-                            "data": {
-                                "title": {2},
+                            "data": {{
+                                "title": {},
                                 "info": ""
-                                }
-                        },
-                        """.format("{","{",name)
+                                }}
+                        }},
+                        """.format(name)
         for slide in slide:
             goid = slide["object_goid"]
             frontend_props+="""
-            {
-            "center": {
+            {{
+            "center": {{
                  "global_object_id": {}
-                 }
-            },
+                 }}
+            }},
             """.format(goid)
         frontend_props+="""
             ],
             "slide_idx": 1,
-            "settings": {
+            "settings": {{
                 "show_info": "no-info"
-                }
-            {0}
-        {1}""".format("{","{")
+                }}
+            }}
+        }}"""
         call="collection/{}".format(presentation["__easydb_id"])
         response_object = self.post(call, collection_object.to_json())
         self.logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
