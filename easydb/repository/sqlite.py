@@ -178,6 +178,9 @@ class SQLiteRowIterator(object):
             result[column_name] = row[column_name]
         return result
 
+    def get_rows(self):
+        return self.cur.fetchall()    
+
     def next(self):
         return self.__next__()
 

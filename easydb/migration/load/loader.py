@@ -137,18 +137,14 @@ def load_collections(
 
     collections=ezapi.get('collection/list')
     root_collection_id=collections[0]['collection']['_id']
-    logger.debug('ROOT_COLLECTION_ID =' +str(root_collection_id))
 
     collections=ezapi.get('collection/list/{}'.format(root_collection_id))
-    logger.info('SET COLLECTION USER_COLLECTION_IDS')
 
     for collection in collections:
         collection_id=collection['collection']['_id']
         if collection['_owner']['_basetype'] == 'user':
             collection_owner_id=collection['_owner']['user']['_id']
-            logger.debug('COLLECTION ' +str(collection_id) + 'HAS PARENT OWNER_ID ' + str(collection_owner_id))
         else:
-            logger.debug('COLLECTION ' +str(collection_id) + 'HAS NO OWNER')
             continue
         sql='UPDATE "easydb.ez_collection" SET "__user_collection_id" = {} WHERE "__owner_id"={} AND "__parent_id" is NULL'.format(collection_id, collection_owner_id)
         db.execute(sql)
@@ -196,25 +192,26 @@ def load_collection_objects(
     db.open()
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables_rows=tables.get_rows()
 
-    for table in tables:
+    for table in tables_rows:
 
         if table['name'] == "easydb.ez_collection__objects":
             continue
         columns = db.execute('PRAGMA table_info("{}")'.format(table['name']))
-        for column in columns:
+        columns_rows=columns.get_rows()
+        for column in columns_rows:
             name = column['name']
             if name == "collection_id":
                 rows = db.execute('SELECT __source_unique_id, __easydb_goid, collection_id FROM "{}"'.format(table['name']))
-                for row in rows:
+                rows_rows=rows.get_rows()
+                for row in rows_rows:
                     if row['collection_id'] is not None:
                         logger.info('Updating collection_objects GOID for type {}'.format(table['name']))
                         db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = "{}" WHERE object_id = "{}"'.format(row['__easydb_goid'], row['__source_unique_id']))
-    logger.info('load collection_objects')
+    logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
-        db = destination.get_db()
-        db.open()
         loop = False
         sql = 'SELECT * FROM "easydb.ez_collection__objects" where "uploaded" is null'
         rows = db.execute(sql)
@@ -223,49 +220,27 @@ def load_collection_objects(
             loop = True
             job.add(Collection_Object.from_row(row))
         job.finish()
-        del(rows)
-        db.close()
-    db = destination.get_db()
-    db.open()
-    presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "collection"')
-    for presentation in presentations:
-        db.open()
+
+    logger.debug("ADDING FONTEND_PROPS FOR PRESENTATIONS")
+    presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "presentation"')
+    presentations_rows=presentations.get_rows()
+    for presentation in presentations_rows:
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
+        slides_rows=slides.get_rows()
         name= presentation["displayname:de-DE"]
-        frontend_props = """
-            {{
-                "webfrontend_props":{{
-                    "presentation": {{
-                        "slides": [
-                            {{
-                                "type": "start",
-                                "data": {{
-                                    "title": {},
-                                    "info": ""
-                                    }}
-                                    }}""".format(name)
-        for slide in slides:
+        slides_a=[]
+        for slide in slides_rows:
             goid = slide["object_goid"]
-            frontend_props+=""",
-            {{
-            "center": {{
-                 "global_object_id": {}
-                 }}
-            }}""".format(goid)
-        frontend_props+="""
-            ],
-            "slide_idx": 1,
-            "settings": {
-                "show_info": "no-info"
-                }
-            }
-            }
-        }"""
+            slide_d = {}
+            slide_d["type"]="one"
+            slide_d["center"]={"_global_object_id": goid}
+            slides_a.append(slide_d)
+        presentation_d={"slide_idx": 1, "slides": slides_a, "settings": {"show_info": "no-info"}}
+        frontend_props = {"presentation": presentation_d}
+        collection_d = {"_version": 2, "webfrontend_props": frontend_props}
+        diction = {"collection": collection_d}
         call="collection/{}".format(presentation["__easydb_id"])
-        print(name +": "+ frontend_props)
-        response_object = ezapi.post(call, frontend_props)
-        logger.debug('RESPONSE COLLECTION UPDATE:\n {0}'.format(response_object))
-        db.close()
+        response_object = ezapi.post(call, diction)
 
 
 def load_collection_objects_batch(batch, ezapi, db):
@@ -812,6 +787,7 @@ select
     c.__owner_id,
     c.__owner,
     c.__user_collection_id,
+    c.__type,
 	p.__easydb_id as __parent_id{0}
 from "easydb.ez_collection" c
 left join "easydb.ez_collection" p on c."__parent_id" == p."__source_unique_id"
