@@ -1,3 +1,5 @@
+# Migration von easydb4 auf easydb5
+
 ## Grundlegend
 Für die Migration werden zwei sqlite-Datenbanken erstellt. Zunächst werden die Daten von easydb4 Server
 extrahiert und in einer Datenbank gespeichert, die "source.db" genannt werden muss. Diese ist im Weiteren gemeint,
@@ -75,3 +77,23 @@ Wenn alle Objekttypen vermerkt sind, kann der uplaod mit
 >./upload.py http://localhost http://localhost/eas eas-instanz source/ destination/ --login LOGIN --password PASSWORD
 
 auf dem Zielsystem gestartet werden (ggF. müssen Verzeichnisse und URLs angepasst werden). Es ist ratsam diesen Aufruf in einem Screen zu starten, damit das Skript auch bei geschlossener SSH-Session weiterlaufen kann.
+
+
+# Hotfolder Import
+
+Über den Hotfolder können Dateien in die easydb Importiert werden. Um die Dateistruktur in der easydb5 abzunilden können die Verzeichnisse als Schlagworte o.ä. in der easydb mittels CSV-Importer angelegt werden.
+Zum erzeugen einer solchen CSV-Datei kann das Tool filetree2csv.py verwendet werden. Es wird per Konsole mit Python 2 Interpreter aufgerufen. Das Argument "--input"/"-i" nimmt das Toplevel-Verzeichnis der zu importierenden Daten entgegen. Das "--output"/"-o" nimmt den Namen und den Pfad zur Zieldatei entgegen. Standardmäßig (keine Argumente übergeben) wird das aktuelle Arbeitsverzeichnis verwendet und die CSV-Datei struct.csv ausgegeben.
+
+Aufruf Windows:
+
+> python -2 filetree2csv.py
+
+Aufruf Mac/Linux/BSD (Abhängig von env):
+
+> python filetree2csv.py
+
+Mit Argumenenten:
+
+> python -2 filetree2csv.py -i Datenverzeichnis -o dateistruktur.csv
+
+Im CSV-Importer muss dann die CSV-Spalte "filename_and_path" auf das Feld "asset#original_filename" gemappt werden. Mittels dieses Mappings lassen sich auch weitere Felder in die easydb laden.
