@@ -1,11 +1,11 @@
-# Migration von easydb4 auf easydb5
 ## Grundlegend
 Für die Migration werden zwei sqlite-Datenbanken erstellt. Zunächst werden die Daten von easydb4 Server
 extrahiert und in einer Datenbank gespeichert, die "source.db" genannt werden muss. Diese ist im Weiteren gemeint,
 wenn die Rede von "Source" ist.
 Die Daten werden transformiert und in einer weiteren Datenbank Namens "destination.db" abgelegt, die im Weiteren als "Destination"
 bezeichnet wird.
-## Extraction
+![Migrationsablauf](doku/ablauf.png)
+## Extraction/data2sqlite
 Um die Source-Datenbank zu erstellen muss der gesamte Inhalt des Git-Repos "easydb-tools-migration" auf den easydb4-Server geklont oder kopiert werden.
 Für die Erstellung von Source ist das Python-Tool "data2sqlite" relevant.
 Mit dem aufruf
