@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# coding=utf8
+
 import logging
 import logging.config
 import sys
