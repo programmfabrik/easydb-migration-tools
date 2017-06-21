@@ -16,9 +16,9 @@ from easydb.migration.transform.extract import AssetColumn
 ##VOR AUSFÜHRUNG SETZEN!
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
-instanz= "unib-heidelberg"                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-collection_table= "workfolder"                           #Bezeichnung der Mappen-Tabelle in Source
-collection_objects_table= "workfolder__bilder"                  #Link-Tabelle für Objekte in Mappen
+instanz=                                    #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
+collection_table=                          #Bezeichnung der Mappen-Tabelle in Source
+collection_objects_table=                   #Link-Tabelle für Objekte in Mappen
 
 ###############################################################################
 
