@@ -16,9 +16,9 @@ from easydb.migration.transform.extract import AssetColumn
 ##VOR AUSFÜHRUNG SETZEN!
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
-instanz= None                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-collection_table= None                           #Bezeichnung der Mappen-Tabelle in Source
-collection_objects_table= None                   #Link-Tabelle für Objekte in Mappen
+instanz= "unib-heidelberg"                                   #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
+collection_table= "workfolder"                           #Bezeichnung der Mappen-Tabelle in Source
+collection_objects_table= "workfolder__bilder"                  #Link-Tabelle für Objekte in Mappen
 
 ###############################################################################
 
@@ -92,6 +92,7 @@ def final_touch(tables):
 
 #create destination.db
 job.prepare()
+
 ###Zur Erzeugung einer leeren Destination alles ab hier auskommentieren
 # transform
 tables=[]       #list of all tables, a transformation for each table must be appended in the dictionary stile below
@@ -184,7 +185,7 @@ tables.append(
 )
 
 ################################################################################
--------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
+#-------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
 tables.append(
     {
@@ -200,7 +201,7 @@ tables.append(
         'table_to': 'easydb.table',                                 #table in destination
         'has_parent': False,                                        #True if Object is part of a List with hierarchical ordering
         'has_pool': False,                                          #True if records of this table are orgranized in pools
-        'has_asset': False                                          #True if record has a file attached to it
+        'has_asset': False,                                          #True if record has a file attached to it
         'asset_columns': [AssetColumn(instanz, '{}.table'.format(schema), 'column', 'table', 'column', ['url'])]
     }
 )
@@ -222,7 +223,7 @@ tables.append(
         'table_to':'easydb.ez_collection__objects',
         'has_parent': False,
         'has_pool': False,
-        'has_asset': False
+        'has_asset': False,
         'objects_table': None
     }
 )
