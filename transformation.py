@@ -184,7 +184,7 @@ tables.append(
 )
 
 ################################################################################
--------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
+#-------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
 tables.append(
     {
