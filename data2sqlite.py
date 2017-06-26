@@ -27,7 +27,7 @@ migration_parser.add_argument('--pg_dsn',                                       
 migration_parser.add_argument('--sqlite_file',                                  help='Filename for easydb_SQLite Database')
 migration_parser.add_argument('--eas_url',                                      help='URL for easydb-EAS-Server')
 migration_parser.add_argument('--eas_instance',                                 help='Instance-Name on EAS-Server')
-migration_parser.add_argument('--eas_versions',  nargs='*', default=[],         help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
+migration_parser.add_argument('--eas_versions',  nargs='*',                     help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
 
 pg_parser=subparsers.add_parser('pg', help="Add to Source from postgres")
 pg_parser.add_argument('--dsn',                                                 help='DSN for PostgreSQL,format: "dbname=easydb port=5432 user=postgres"')
@@ -69,6 +69,8 @@ if args.mode=="easydb4":
 
         eas_instance = ez_conf['INSTANCE']
 
+        eas_versions = {'url': ['original']}
+
     if args.pg_dsn is not None:
         pg_dsn = args.pg_dsn
     if pg_dsn is None:
@@ -93,7 +95,7 @@ if args.mode=="easydb4":
         logging.warning('No eas-instance provided. Program will terminate now')
         sys.exit(0)
 
-    if args.eas_versions != []:
+    if args.eas_versions is not None:
         eas_versions={}
         for version in args.eas_versions:
             split = version.split(":")
@@ -107,7 +109,8 @@ if args.mode=="easydb4":
     print(eas_instance)
     print(eas_url)
     print(eas_versions)
-
+    print("\n sqlite-file: \n")
+    print(sqlite_file)
     eadb_link_index = """
     CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
     ON "%TABLE_NAME_IN_SOURCE%" (from_table_id, to_table_id, from_id, to_id);
