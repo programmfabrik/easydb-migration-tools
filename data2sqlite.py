@@ -69,7 +69,7 @@ if args.mode=="easydb4":
 
         eas_instance = ez_conf['INSTANCE']
 
-        eas_versions = {'url': ['original']}
+        eas_versions = {'original': ['url']}
 
     if args.pg_dsn is not None:
         pg_dsn = args.pg_dsn
@@ -104,6 +104,8 @@ if args.mode=="easydb4":
                     eas_verions[split[0]].append(split[1])
             else:
                 eas_versions[split[0]]=[split[1]]
+    else:
+        eas_versions=None
 
     print("eas-info: \n")
     print(eas_instance)
@@ -139,7 +141,7 @@ if args.mode=="easydb4":
             ]
         )
 
-    if args.eas_versions is not None:
+    if eas_versions is not None:
         logging.info("Adding to Source from EAS")
         extract.eas_to_source(
             name=name,
