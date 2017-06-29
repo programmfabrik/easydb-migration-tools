@@ -22,7 +22,7 @@ argparser.add_argument('--dump_mysql',                                          
 subparsers=argparser.add_subparsers(help="Set Datasources", dest='mode')
 
 migration_parser=subparsers.add_parser('easydb4',                               help="Set Migration Mode to create Source for Migration")
-migration_parser.add_argument('--config', nargs=3,                              help='Fetch Server Information from URL, usage: "--auto_fetch URL login password" If set no other arguments have to be set')
+migration_parser.add_argument('--config', nargs=3,                              help='Fetch Server Information from URL, usage: "--config URL login password" If set no other arguments have to be set')
 migration_parser.add_argument('--pg_dsn',                                       help='DSN for easydb-PostgreSQL Server, must be sperated by spaces')
 migration_parser.add_argument('--sqlite_file',                                  help='Filename for easydb_SQLite Database')
 migration_parser.add_argument('--eas_url',                                      help='URL for easydb-EAS-Server')
