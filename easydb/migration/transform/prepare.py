@@ -227,6 +227,8 @@ class DestinationSchema(object):
         if ez_column.kind == 'column':
             if ez_column.column_type == 'eas':
                 self.db_schema.tables.append(self._asset_table(ot.name, ez_column.name))
+            elif 'l10n' in ez_column.column_type:
+                self._add_l10n_columns(table_def, ez_column.name)
             else:
                 self._add_column(table_def, ez_column.name, ez_column.column_type)
 
