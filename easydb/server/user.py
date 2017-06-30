@@ -99,5 +99,6 @@ class User(object):
             elif key == '__source_unique_id':
                 user.source_id = value
         for row in group_rows:
-            user.groups.append(row['group_id'])
+            if row['group_id'] is not None:
+                user.groups.append(row['group_id'])
         return user
