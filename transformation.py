@@ -123,7 +123,8 @@ tables.append(
         'table_to': 'easydb.ez_user',
         'has_parent': False,
         'has_pool': False,
-        'has_asset': False
+        'has_asset': False,
+        'objects_table': None
     }
 )
 #'GROUPS'
@@ -141,7 +142,8 @@ tables.append(
         'table_to':'easydb.ez_group',
         'has_parent': False,
         'has_pool': False,
-        'has_asset': False
+        'has_asset': False,
+        'objects_table': None
     }
 )
 ##POOLS
@@ -158,7 +160,8 @@ tables.append(
         'table_to':'easydb.ez_pool',
         'has_parent': True,
         'has_pool': False,
-        'has_asset': False
+        'has_asset': False,
+        'objects_table': None
    }
 )
 
@@ -180,7 +183,8 @@ tables.append(
         'table_to':'easydb.ez_collection',
         'has_parent': False,
         'has_pool': False,
-        'has_asset': False
+        'has_asset': False,
+        'objects_table': None
    }
 )
 
@@ -202,7 +206,8 @@ tables.append(
         'has_parent': False,                                        #True if Object is part of a List with hierarchical ordering
         'has_pool': False,                                          #True if records of this table are orgranized in pools
         'has_asset': False,                                          #True if record has a file attached to it
-        'asset_columns': [AssetColumn(instanz, '{}.table'.format(schema), 'column', 'table', 'column', ['url'])]
+        'asset_columns': [AssetColumn(instanz, '{}.table'.format(schema), 'column', 'table', 'column', ['url'])],
+        'objects_table': None
     }
 )
 

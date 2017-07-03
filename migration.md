@@ -31,7 +31,7 @@ Um ersichtlich zu machen, welche Transformationen nötig sind, sollte zunächst 
 
 >./transform eadb-url source-directory destination-directory --login LOGIN --password PASSWORD
 
-ausgeführt werden (am besten den easydb-root-user verwenden, das destination-directory muss vorher angelegt weren).
+ausgeführt werden (am besten den easydb-root-user verwenden, das destination-directory muss vorher angelegt weren, ebenso muss die source.db in einem Verzeichnis abgelegt werden, das mit source-direcory im Aufruf referenziert wird).
 
 Alle Tabellen der easydb4, die Migriert werden sollen, müssen mit einem Dictionary im Transformation-Skript
 beschrieben werden und dieses der Liste "tables" angehängt werden. Jedes Dictionary muss dabei folgende Form haben

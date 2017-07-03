@@ -122,6 +122,7 @@ class DestinationSchema(object):
         table_def = self._easydb_table('ez_collection')
         self._add_l10n_columns(table_def, 'displayname')
         self._add_l10n_columns(table_def, 'description')
+        self._add_column(table_def, 'shortname', 'text')
         self._add_column(table_def, '__parent_id', 'text')
         self._add_column(table_def, '__owner', 'text')
         self._add_column(table_def, '__type', 'text')
