@@ -72,7 +72,7 @@ def final_touch(tables):
 
     for table in tables:
 
-        if table['has_parent']:
+        if table.get('has_parent'):
             req = 'SELECT fk_father_id, id FROM "' + table["table_from"] +'"'#get parent-ids from source
             for row in source_c.execute(req):
                 if row[0]!=None:
@@ -80,9 +80,9 @@ def final_touch(tables):
                 else:
                     write = 'UPDATE "{0}" SET __parent_id = NULL'.format(table["table_to"]) + ' WHERE __source_unique_id = ' + str(row[1])#set no parent-id
                 destination_c.execute(write)
-        if table['has_pool']:
+        if table.get('has_pool'):
             destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
-        if table['objects_table'] is not None:
+        if table.get('objects_table'):
             destination_c.execute('SELECT object_id, collection_id FROM "easydb.ez_collection__objects"')
             rows = destination_c.fetchall()
             for row in rows:
