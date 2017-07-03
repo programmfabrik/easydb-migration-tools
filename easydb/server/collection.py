@@ -20,7 +20,7 @@ class Collection(object):
         self.owner_id=None
         self.user_collection_id=None
         self.type=None
-        self.shortname=None
+        
 
     def to_json(self):
         if self.user_collection_id is not None:
@@ -33,7 +33,6 @@ class Collection(object):
                     'description': self.description,
                     '_id_parent': self.user_collection_id,
                     'children_allowed': True,
-                    'shortname': self.shortname,
                     'type': self.type
                     },
                 '_owner': {
@@ -53,7 +52,6 @@ class Collection(object):
                     'description': self.description,
                     '_id_parent': self.parent_id,
                     'children_allowed': True,
-                    'shortname': self.shortname,
                     'type': self.type
                     },
                 '_owner': {
@@ -89,6 +87,4 @@ class Collection(object):
                 collection.user_collection_id=value
             if key == '__type':
                 collection.type = value
-            if key == 'shortname':
-                collection.shortname = value
         return collection

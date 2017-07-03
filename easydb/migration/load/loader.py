@@ -65,14 +65,12 @@ def load(
         elif objecttype == 'ez_collection':
             load_collections(source, destination, ezapi, batch_size)
         elif objecttype == 'ez_collection__objects':
-            collection_objects=True
+            load_collection_objects(source, destination, ezapi, batch_size)
         else:
             cnl = {}
             if objecttype in custom_nested_loaders:
                 cnl = custom_nested_loaders[objecttype]
             load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl, cnl)
-        if collection_objects:
-            load_collection_objects(source, destination, ezapi, batch_size)
 
     if manage_source:
         source.close()
