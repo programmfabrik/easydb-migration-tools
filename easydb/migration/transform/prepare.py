@@ -122,6 +122,7 @@ class DestinationSchema(object):
         table_def = self._easydb_table('ez_collection')
         self._add_l10n_columns(table_def, 'displayname')
         self._add_l10n_columns(table_def, 'description')
+        self._add_column(table_def, 'shortname', 'text')
         self._add_column(table_def, '__parent_id', 'text')
         self._add_column(table_def, '__owner', 'text')
         self._add_column(table_def, '__type', 'text')
@@ -227,6 +228,8 @@ class DestinationSchema(object):
         if ez_column.kind == 'column':
             if ez_column.column_type == 'eas':
                 self.db_schema.tables.append(self._asset_table(ot.name, ez_column.name))
+            elif 'l10n' in ez_column.column_type:
+                self._add_l10n_columns(table_def, ez_column.name)
             else:
                 self._add_column(table_def, ez_column.name, ez_column.column_type)
 
