@@ -12,6 +12,7 @@ class Pool(object):
     def __init__(self):
         self.name = {}
         self.description = {}
+        self.shortname=None
         self.parent_id = None
         self.id = None
         self.version = 1
@@ -25,6 +26,7 @@ class Pool(object):
                 '_version': self.version,
                 'name': self.name,
                 'description': self.description
+                'shortname': self.shortname,
             }
         }
         if self.parent_id is None:
@@ -43,6 +45,8 @@ class Pool(object):
                 pool.name[key.split(':')[1]] = value
             if key.startswith('description:'):
                 pool.description[key.split(':')[1]] = value
+            if key == 'shortname':
+                collection.shortname = value
             if key == '__parent_id':
                 pool.parent_id = value
             if key == '__source_unique_id':
