@@ -25,8 +25,8 @@ class Pool(object):
                 '_id': self.id,
                 '_version': self.version,
                 'name': self.name,
-                'description': self.description
-                'shortname': self.shortname,
+                'description': self.description,
+                'shortname': self.shortname
             }
         }
         if self.parent_id is None:
