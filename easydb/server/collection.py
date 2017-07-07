@@ -68,9 +68,7 @@ class Collection(object):
     @staticmethod
     def from_row(row):
         collection = Collection()
-        print(row)
         for key, value in row.items():
-
             if key.startswith('displayname:'):
                 collection.displayname[key.split(':')[1]] = value
             if key.startswith('description:'):

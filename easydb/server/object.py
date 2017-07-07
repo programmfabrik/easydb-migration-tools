@@ -86,6 +86,8 @@ class Object(object):
                     value = None
                 else:
                     value = int(value)
+            elif  'l10n' in column.column_type:
+                value=value
         else:
             raise Exception('column kind {0} not supported'.format(column.kind))
         if as_nested:

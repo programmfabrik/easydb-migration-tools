@@ -468,9 +468,15 @@ class Loader(object):
                 if column_def.column_type == 'link':
                     self.prepare_query__link(column_def)
                 else:
-                    if column_def.column_type == 'eas':
+                    if "l10n" in column_def.column_type:
+                        languages =  self.destination.get_schema_languages()
+                        for language in languages:
+                            name=column_def.name+":"+language
+                            self.columns.add(self.tables.main(), name, column_def.name, True)
+                    elif column_def.column_type == 'eas':
                         continue
-                    self.columns.add(self.tables.main(), column_def.name, column_def.name)
+                    else:
+                        self.columns.add(self.tables.main(), column_def.name, column_def.name)
 
     def prepare_query__pool(self):
         table = self.tables.add("easydb.ez_pool")
@@ -567,6 +573,12 @@ class Loader(object):
             if column_def.kind == 'column':
                 if column_def.column_type == 'eas':
                     continue
+                elif 'l10n' in column_def.column_type:
+                    l = self.destination.get_schema_languages()
+                    value={}
+                    for language in l:
+                        name=column_def.name+":"+language
+                        value[language] = rows[0][self.columns.get_column(name).alias]
                 else:
                     value = rows[0][self.columns.get_column(column_def.name).alias]
             elif column_def.kind == 'link':
@@ -1171,8 +1183,8 @@ class LoaderColumns(object):
     def __init__(self):
         self.columns = []
         self.columns_by_field = {}
-    def add(self, table, name, field):
-        column = LoaderColumn(table, name, field, len(self.columns))
+    def add(self, table, name, field,l10n=False):
+        column = LoaderColumn(table, name, field, len(self.columns),l10n)
         self.columns.append(column)
         if field not in self.columns_by_field:
             self.columns_by_field[field] = []
@@ -1186,17 +1198,25 @@ class LoaderColumns(object):
         else:
             return []
     def get_column(self, field):
-        columns = self.get_columns(field)
-        if len(columns) != 1:
-            raise Exception('none or more than one column found for field {0}'.format(field))
-        return columns[0]
+        if ":" in field:
+            l10n_field=field.split(":")
+            columns = self.get_columns(l10n_field[0])
+            for col in columns:
+                if col.name.endswith(l10n_field[1]):
+                    return col;
+        else:
+            columns = self.get_columns(field)
+            if len(columns) != 1:
+                raise Exception('none or more than one column found for field {0}'.format(field))
+            return columns[0]
 
 class LoaderColumn(object):
-    def __init__(self, table, name, field, order):
+    def __init__(self, table, name, field, order, l10n=False):
         self.table = table
         self.name = name
         self.field = field
         self.order = order
+        self.l10n = l10n
         self.alias = 'f{0}'.format(self.order)
         self.name_alias = '{0}.{1} as {2}'.format(self.table.alias, quote_name(self.name), self.alias)
 

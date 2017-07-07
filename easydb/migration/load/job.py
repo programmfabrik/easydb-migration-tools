@@ -37,7 +37,7 @@ class LoadJob(object):
         if self.source is not None and self.source.is_open():
             self.source.close()
 
-    def load(self, objecttypes=None, batch_size=1000, search_assets=True, verify_ssl=True, stop_on_error=None, custom_nested_loaders={}):
+    def load(self, objecttypes=None, batch_size=1000, search_assets=True, verify_ssl=False, stop_on_error=None, custom_nested_loaders={}):
         start = time.time()
         if stop_on_error is None:
             stop_on_error = self.exit_on_error
