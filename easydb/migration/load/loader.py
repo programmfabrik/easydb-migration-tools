@@ -783,7 +783,8 @@ sql_get_pools = """\
 select
 	c.__source_unique_id,
     c._standard_masks,
-	p.__easydb_id as __parent_id{0}
+	p.__easydb_id as __parent_id{0},
+    c.shortname as shortname
 from "easydb.ez_pool" c
 left join "easydb.ez_pool" p on c."__parent_id" == p."__source_unique_id"
 where
