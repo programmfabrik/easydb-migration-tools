@@ -16,9 +16,9 @@ from easydb.migration.transform.extract import AssetColumn
 ##VOR AUSFÜHRUNG SETZEN!
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
-instanz=                                    #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-collection_table=                          #Bezeichnung der Mappen-Tabelle in Source
-collection_objects_table=                   #Link-Tabelle für Objekte in Mappen
+instanz= "test-instanz"                                #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
+collection_table="arbeitsmappen"                         #Bezeichnung der Mappen-Tabelle in Source
+collection_objects_table= "arbeitsmappe__bilder"                  #Link-Tabelle für Objekte in Mappen
 
 ###############################################################################
 
@@ -92,8 +92,9 @@ def final_touch(tables):
 
 #create destination.db
 job.prepare()
+# Wemm nur eine leere Destion erzeugt werden soll: nächste Zeile aktivieren
+#exit()
 
-###Zur Erzeugung einer leeren Destination alles ab hier auskommentieren
 # transform
 tables=[]       #list of all tables, a transformation for each table must be appended in the dictionary stile below
 
@@ -221,8 +222,7 @@ tables.append(
             id as __source_unique_id,
             lk_bild_id as object_id,
             lk_arbeitsmappe_id as collection_id
-            position
-        FROM "{}.{}.{}"
+		FROM "{}.{}.{}"
         """.format(instanz,schema,collection_objects_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),
         'table_to':'easydb.ez_collection__objects',
