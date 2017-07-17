@@ -52,6 +52,7 @@ beschrieben werden und dieses der Liste "tables" angehängt werden. Jedes Dictio
     'has_pool': False,                                          #True if records of this table are orgranized in pools
     'has_asset': False                                          #True if record has a file attached to it
     'asset_columns': [AssetColumn(instanz, '{}.table'.format(schema), 'column', 'table', 'column', ['url'])]
+    'objects_table': None
 }
 ```
 * Im Key 'sql' wird die SQL-Query abgelegt, die Daten aus Source holt und in das Format der Destination bringt (sourc_column as destination_column).
@@ -60,8 +61,9 @@ beschrieben werden und dieses der Liste "tables" angehängt werden. Jedes Dictio
 * "has_pool" muss True sein für alle Datensätze, die in Pools organisiert sind.
 * "has_asset" muss True sein für alle Datensätze, die Assets besitzen. Für diese muss auch der key
 * "assett_collumns" gesetzt sein.
+* Für "objects_table" muss nur bei Tabellen gesetzt werden, die Arbeitsmappenobejkte enthalten (Link-Tabelle zwischen Datensätzen und Arbeitsmappen). Hier wird die Datensatztabelle eingetragen (z.B.: easydb.bilder o.ä.)
 
-Für User, Gruppen, Pools und Mappen sind beriets Dictionaries definiert. Alles weitere muss händisch hinzugfügt werden. Wenn alle Tabellen mit einem Dictionary beschrieben  und dieses der Liste "tables" angehängt wurde, kann die Transformation mit
+Für User, Gruppen, Pools und Mappen sind beriets Dictionaries definiert. Alles weitere muss händisch hinzugfügt werden. Wenn alle Tabellen mit einem Dictionary beschrieben  und diese der Liste "tables" angehängt wurden, kann die Transformation mit
 
 >./transform eadb-url source-directory destination-directory --login LOGIN --password PASSWORD
 

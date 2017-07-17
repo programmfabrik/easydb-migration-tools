@@ -81,7 +81,7 @@ def final_touch(tables):
                     write = 'UPDATE "{0}" SET __parent_id = NULL'.format(table["table_to"]) + ' WHERE __source_unique_id = ' + str(row[1])#set no parent-id
                 destination_c.execute(write)
         if table['has_pool']:
-            destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id = NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
+            destination_c.execute('UPDATE "{0}" SET __pool_id ="STANDARD" WHERE __pool_id is NULL'.format(table["table_to"]))#set pool-id for records that are supposed to be organized in pool, but have no pool assigned
         if table['objects_table'] is not None:
             destination_c.execute('SELECT object_id, collection_id FROM "easydb.ez_collection__objects"')
             rows = destination_c.fetchall()
