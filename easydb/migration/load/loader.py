@@ -581,6 +581,7 @@ class Loader(object):
                         value[language] = rows[0][self.columns.get_column(name).alias]
                 else:
                     value = rows[0][self.columns.get_column(column_def.name).alias]
+            
             elif column_def.kind == 'link':
                 for ot_name, ot in self.ez_schema.objecttypes.items():
                     if ot_name == column_def.other_table:

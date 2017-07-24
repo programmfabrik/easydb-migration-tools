@@ -192,6 +192,8 @@ tables.append(
 ################################################################################
 #-------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
+##Example with Assets, linked Objects using eadb_links in easydb4 and organized in Pools, as well as Collections 
+##Main is the table of actual objects and linked the table of linked objects
 tables.append(
     {
         'sql':
@@ -199,15 +201,38 @@ tables.append(
         SELECT
             id as __source_unique_id,
             name,
-            name as "displayname:de-DE"
-        FROM "{0}.{1}.table_from"
+            date_from || "|" || date_to as daterange 
+            diverse_andere_felder
+        FROM "{0}.{1}.main"
         """.format(instanz,schema),                                 #sql query (hard to automatize, because of varying join, etc.), all fields are examples, must replace those
-        'table_from': '{0}.{1}.table'.format(instanz, schema),      #table in source
-        'table_to': 'easydb.table',                                 #table in destination
+        'table_from': '{0}.{1}.main'.format(instanz, schema),      #table in source
+        'table_to': 'easydb.main',                                 #table in destination
+        'has_parent': False,                                        #True if Object is part of a List with hierarchical ordering
+        'has_pool': True,                                          #True if records of this table are orgranized in pools
+        'has_asset': True,                                          #True if record has a file attached to it
+        'asset_columns': [AssetColumn(instanz, '{}.main'.format(schema), 'bild', 'main', 'bild', ['url'])],
+        'objects_table': None
+    }
+)
+##Example using eadblinks, from and to_table_id can be retrieved from eadb_tables
+tables.append(
+    {
+        'sql':
+        """\
+		select
+		    to_id as main_id,
+		    from_id || ':' || to_id as '__source_unique_id',
+		    from_id as __uplink_id
+		from "{}.{}.eadb_links" l
+		join "{}.{}.main" b on (l.from_id = b.id)
+		join "{}.{}.linked" g on (l.to_id = g.id)
+		where to_table_id=58 AND from_table_id=1
+		""".format(instanz,schema),                                 #get table_ids from eadb_tables in Source.
+        'table_from': '{0}.{1}.linked'.format(instanz, schema),      #table in source
+        'table_to': 'easydb.linked',                                 #table in destination
         'has_parent': False,                                        #True if Object is part of a List with hierarchical ordering
         'has_pool': False,                                          #True if records of this table are orgranized in pools
         'has_asset': False,                                          #True if record has a file attached to it
-        'asset_columns': [AssetColumn(instanz, '{}.table'.format(schema), 'column', 'table', 'column', ['url'])],
         'objects_table': None
     }
 )
@@ -229,7 +254,7 @@ tables.append(
         'has_parent': False,
         'has_pool': False,
         'has_asset': False,
-        'objects_table': None
+        'objects_table': 'easydb.main' #Table of Objects in workfolder in destination
     }
 )
 
