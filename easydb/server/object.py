@@ -78,6 +78,11 @@ class Object(object):
             elif column.column_type == 'decimal.2':
                 if value is not None:
                     value = float(value)
+            elif column.column_type == 'daterange':
+                if value is not None:
+                    date_from=value.split("|")[0]
+                    date_to=value.split("|")[1]
+                    value={"from": "{}".format(date_from),"to": "{}".format(date_to)}
             elif column.column_type == 'boolean':
                 if value is None:
                     value = False
