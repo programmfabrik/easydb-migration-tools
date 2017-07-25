@@ -124,14 +124,16 @@ def load_collections(
 
     db = destination.get_db()
     db.open()
-
-    users=db.execute('SELECT login, __easydb_id FROM "easydb.ez_user"')
+    users=db.execute('SELECT login, __easydb_id FROM "easydb.ez_user"').get_rows()
+    db.close()
     logger.info('SET COLLECTION OWNERS IN DESTINATION')
 
     for user in users:
+        db.open()
         owner='user_'+user['login']
         sql='UPDATE "easydb.ez_collection" SET "__owner_id" = {}, __owner="{}" WHERE "__owner"="{}"'.format(user['__easydb_id'],user['login'],owner)
         db.execute(sql)
+        db.close()
 
     collections=ezapi.get('collection/list')
     root_collection_id=collections[0]['collection']['_id']
@@ -139,6 +141,7 @@ def load_collections(
     collections=ezapi.get('collection/list/{}'.format(root_collection_id))
 
     for collection in collections:
+        db.open()
         collection_id=collection['collection']['_id']
         if collection['_owner']['_basetype'] == 'user':
             collection_owner_id=collection['_owner']['user']['_id']
@@ -146,8 +149,8 @@ def load_collections(
             continue
         sql='UPDATE "easydb.ez_collection" SET "__user_collection_id" = {} WHERE "__owner_id"={} AND "__parent_id" is NULL'.format(collection_id, collection_owner_id)
         db.execute(sql)
+        db.close()
 
-    db.close()
     logger.info('UPLOAD COLLECTIONS')
 
     loop = True
