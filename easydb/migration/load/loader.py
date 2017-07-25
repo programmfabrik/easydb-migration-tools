@@ -1133,7 +1133,13 @@ and c."__source_unique_id" = ?
                 elif column_def.column_type == 'eas':
                     self.prepare_query__eas(column_def)
                 else:
-                    self.columns.add(self.tables.main(), column_def.name, column_def.name)
+                    if 'l10n' in column_def.column_type:
+                        languages =  self.destination.get_schema_languages()
+                        for language in languages:
+                            name=column_def.name+":"+language
+                            self.columns.add(self.tables.main(), name, column_def.name, l10n=True)
+                    else:
+                        self.columns.add(self.tables.main(), column_def.name, column_def.name)
 
     def prepare_query__link(self, column_def):
         for constraint_def in self.table_def.constraints:
