@@ -192,7 +192,7 @@ tables.append(
 ################################################################################
 #-------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
-##Example with Assets, linked Objects using eadb_links in easydb4 and organized in Pools, as well as Collections 
+##Example with Assets, linked Objects using eadb_links in easydb4 and organized in Pools, as well as Collections
 ##Main is the table of actual objects and linked the table of linked objects
 tables.append(
     {
@@ -201,7 +201,7 @@ tables.append(
         SELECT
             id as __source_unique_id,
             name,
-            date_from || "|" || date_to as daterange 
+            date_from || "|" || date_to as daterange,
             diverse_andere_felder
         FROM "{0}.{1}.main"
         """.format(instanz,schema),                                 #sql query (hard to automatize, because of varying join, etc.), all fields are examples, must replace those
