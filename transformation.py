@@ -98,7 +98,7 @@ job.prepare()
 # transform
 tables=[]       #list of all tables, a transformation for each table must be appended in the dictionary stile below
 
-##USERS
+##USERS UNION MIGHT CAUS TROUBLE BECAUSE OF IDENTICAL IDS IN DIFFERENT TABLES SHOULD BE DISABLED BY DEFAULT; BUT MIGHT COME IN HANDY FOR LDAP/KERBEROS OR SUCH
 tables.append(
     {
         'sql':
@@ -173,7 +173,7 @@ tables.append(
         """\
         SELECT
             id as __source_unique_id,
-            "collection" as type,
+            "collection" as __type,
             fk_father_id as __parent_id,
             name as "displayname:de-DE",
             beschreibung as "description:de-DE",

@@ -55,7 +55,13 @@ extract.prepare_source(args.target, init=args.init)
 
 ##MIGRATION#####################################################################
 if args.mode=="easydb4":
-
+    eas_versions = None
+    pg_dsn = None
+    name="blank"
+    sqlite_file=None
+    eas_url=None
+    eas_instance=None
+    eas_versions=None
     if args.config is not None:
         req_url='{}/ezadmin/dumpconfig'.format(args.config[0])
         ez_conf = requests.get(req_url, auth=(args.config[1],args.config[2])).json()
@@ -70,7 +76,8 @@ if args.mode=="easydb4":
         eas_instance = ez_conf['INSTANCE']
 
         eas_versions = {'original': ['url']}
-
+    if args.name is not None:
+        pg_dsn = args.name
     if args.pg_dsn is not None:
         pg_dsn = args.pg_dsn
     if pg_dsn is None:
@@ -82,7 +89,6 @@ if args.mode=="easydb4":
     if sqlite_file is None:
         logging.warning('No sqlite_file provided. Program will terminate now')
         sys.exit(0)
-
     if args.eas_url is not None:
         eas_url = args.eas_url
     if eas_url is None:
@@ -104,15 +110,15 @@ if args.mode=="easydb4":
                     eas_verions[split[0]].append(split[1])
             else:
                 eas_versions[split[0]]=[split[1]]
-    else:
-        eas_versions=None
-
+        
     print("eas-info: \n")
     print(eas_instance)
     print(eas_url)
     print(eas_versions)
     print("\n sqlite-file: \n")
     print(sqlite_file)
+    print("PG-DSN")
+    print(pg_dsn)
     eadb_link_index = """
     CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
     ON "%TABLE_NAME_IN_SOURCE%" (from_table_id, to_table_id, from_id, to_id);
