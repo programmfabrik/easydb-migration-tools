@@ -592,6 +592,8 @@ class Loader(object):
                         break
                 else:
                     raise Exception('table {0} not found'.format(column_def.other_table))
+                if other_ot.name == self.objecttype.name:
+                    continue
                 if other_ot.name in self.custom_nested_loaders:
                     logger.debug('[{0}] from custom nested loader: {1}'.format(self.objecttype.name, other_ot.name))
                     value = self.custom_nested_loaders[other_ot.name].load(db, o.source_id)
@@ -1021,6 +1023,7 @@ and c."__source_unique_id" = ?
         for column_def in self.objecttype.columns.values():
             if column_def.kind == 'column':
                 if column_def.column_type == 'eas':
+                    self.new_loader._load_assets(db, o.source_id, column_def)
                     value = []
                     eas_id_alias = None
                     preferred_alias = None
