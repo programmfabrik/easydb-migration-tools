@@ -600,7 +600,7 @@ class Loader(object):
                 else:
                     logger.debug('[{0}] subloader {1}'.format(self.objecttype.name, other_ot.name))
                     # FIXME: do properly
-                    subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, db, self.ezapi, self.tmp_asset_file, o.source_id)
+                    subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, db, self.ezapi, self.tmp_asset_file, o.source_id, self)
                     subloader.prepare_query(self.source)
                     subrows = subloader.execute_query()
                     current_source_id = None
@@ -938,7 +938,7 @@ where object_id = ?
 
 class LoaderOld(object):
 
-    def __init__(self, destination, ez_schema, objecttype, db, ezapi, tmp_asset_file, uplink_id = None):
+    def __init__(self, destination, ez_schema, objecttype, db, ezapi, tmp_asset_file, uplink_id = None, new_loader):
         self.destination = destination
         self.ez_schema = ez_schema
         self.objecttype = ez_schema.objecttypes[objecttype]
@@ -947,6 +947,7 @@ class LoaderOld(object):
         self.uplink_id = uplink_id
         self.table_def = destination.get_table_for_objecttype(objecttype)
         self.tmp_asset_file = tmp_asset_file
+        self.new_loader=new_loader
 
     def load(self, source):
         logger.debug('load {0}'.format(self.objecttype.name))
