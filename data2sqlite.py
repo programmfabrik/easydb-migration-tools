@@ -71,7 +71,7 @@ if args.mode=="easydb4":
 
         sqlite_file = ez_conf['PDO_DESIGN_DSN'].split(':')[1]
 
-        eas_url = req_url.split('.')[0].split('//')[1]+ez_conf['EAS_INTERNAL_URL']
+        eas_url = ez_conf['EAS_EXTERNAL_URL']
 
         eas_instance = ez_conf['INSTANCE']
 
