@@ -77,7 +77,7 @@ if args.mode=="easydb4":
 
         eas_versions = {'original': ['url']}
     if args.name is not None:
-        pg_dsn = args.name
+         name= args.name
     if args.pg_dsn is not None:
         pg_dsn = args.pg_dsn
     if pg_dsn is None:
@@ -110,7 +110,7 @@ if args.mode=="easydb4":
                     eas_verions[split[0]].append(split[1])
             else:
                 eas_versions[split[0]]=[split[1]]
-        
+
     print("eas-info: \n")
     print(eas_instance)
     print(eas_url)
