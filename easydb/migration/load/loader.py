@@ -592,15 +592,29 @@ class Loader(object):
                         break
                 else:
                     raise Exception('table {0} not found'.format(column_def.other_table))
-                if other_ot.name == self.objecttype.name:
-                    continue
+                for column in other_ot.columns.values():
+                    print("AUS DER FOR")
+                    print(column.name + "," + column.kind + "," + column.column_type)
+                    if column.kind=="column" and column.column_type="link":
+                            print(column.other_table)
+                            if column.other_table == column_def.name:
+                                print("ICCH WUSSTE ES DOCH")
+                                with open(self.destination.directory+"/skipped.csv", 'a') as output:
+                                    fieldnames=['object','column']
+                                    writer = csv.DictWriter(output, fieldnames=fieldnames)
+                                    writer.writerow(
+                                    {
+                                        'object': column_def.name,
+                                        'column': other_ot.name
+                                    })
+                                continue
                 if other_ot.name in self.custom_nested_loaders:
                     logger.debug('[{0}] from custom nested loader: {1}'.format(self.objecttype.name, other_ot.name))
                     value = self.custom_nested_loaders[other_ot.name].load(db, o.source_id)
                 else:
-                    logger.debug('[{0}] subloader {1}'.format(self.objecttype.name, other_ot.name))
+                    logger.info('[{0}] subloader {1}'.format(self.objecttype.name, other_ot.name))
                     # FIXME: do properly
-                    subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, db, self.ezapi, self.tmp_asset_file, o.source_id, self)
+                    subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, db, self.ezapi, self.tmp_asset_file, self, o.source_id)
                     subloader.prepare_query(self.source)
                     subrows = subloader.execute_query()
                     current_source_id = None
@@ -643,7 +657,7 @@ class Loader(object):
         for column_def in self.objecttype.columns.values():
             if column_def.kind == 'column' and column_def.column_type == 'eas':
                 for o in objects:
-                    asset_info = self._load_assets(db, o.source_id, column_def)
+                    asset_info = self._load_assets(db, o.source_id, column_def, self.objecttype)
                     preferred_found = False
                     value = []
                     for eas_id, preferred in asset_info:
@@ -659,8 +673,8 @@ class Loader(object):
                 raise Exception('could not update easydb id')
         logger.info('[{0}] push end'.format(self.objecttype.name))
 
-    def _load_assets(self, db, object_id, column_def):
-        eas_table = 'asset.{0}.{1}'.format(self.objecttype.name, column_def.name)
+    def _load_assets(self, db, object_id, column_def, objecttype):
+        eas_table = 'asset.{0}.{1}'.format(objecttype.name, column_def.name)
         sql = sql_load_assets.format(quote_name(eas_table))
         rows = db.execute(sql, object_id)
         asset_info = []
@@ -938,7 +952,7 @@ where object_id = ?
 
 class LoaderOld(object):
 
-    def __init__(self, destination, ez_schema, objecttype, db, ezapi, tmp_asset_file, uplink_id = None, new_loader):
+    def __init__(self, destination, ez_schema, objecttype, db, ezapi, tmp_asset_file, new_loader, uplink_id = None):
         self.destination = destination
         self.ez_schema = ez_schema
         self.objecttype = ez_schema.objecttypes[objecttype]
@@ -948,7 +962,7 @@ class LoaderOld(object):
         self.table_def = destination.get_table_for_objecttype(objecttype)
         self.tmp_asset_file = tmp_asset_file
         self.new_loader=new_loader
-
+        
     def load(self, source):
         logger.debug('load {0}'.format(self.objecttype.name))
         manage_source = not source.is_open()
@@ -1024,11 +1038,17 @@ and c."__source_unique_id" = ?
         for column_def in self.objecttype.columns.values():
             if column_def.kind == 'column':
                 if column_def.column_type == 'eas':
-                    self.new_loader._load_assets(db, o.source_id, column_def)
+                    asset_info = self.new_loader._load_assets(self.db, o.source_id, column_def, self.objecttype)
+                    if not column_def.name in o.fields.keys():
+                        o.fields[column_def.name]=[]
+                    if asset_info:
+                        o.fields[column_def.name].append({"_id": asset_info[0][0],"preferred": asset_info[0][1]})   
+                    continue
                     value = []
                     eas_id_alias = None
                     preferred_alias = None
                     columns = self.columns.get_columns(column_def.name)
+
                     for column in columns:
                         if column.name == '__eas_id':
                             eas_id_alias = column.alias
@@ -1062,7 +1082,7 @@ and c."__source_unique_id" = ?
                 else:
                     raise Exception('table {0} not found'.format(column_def.other_table))
                 # FIXME: do properly
-                subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, self.db, self.ezapi, self.tmp_asset_file, o.source_id)
+                subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, self.db, self.ezapi, self.tmp_asset_file, self, o.source_id)
                 subloader.prepare_query(self.source)
                 subrows = subloader.execute_query()
                 current_source_id = None
