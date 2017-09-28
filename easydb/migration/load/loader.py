@@ -595,7 +595,7 @@ class Loader(object):
                 for column in other_ot.columns.values():
                     print("AUS DER FOR")
                     print(column.name + "," + column.kind + "," + column.column_type)
-                    if column.kind=="column" and column.column_type="link":
+                    if column.kind=="column" and column.column_type=="link":
                             print(column.other_table)
                             if column.other_table == column_def.name:
                                 print("ICCH WUSSTE ES DOCH")
