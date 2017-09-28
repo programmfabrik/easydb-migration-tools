@@ -170,6 +170,7 @@ class EasydbAPI(object):
             return
         for collection_object in collection_objects:
             if collection_object.object_goid==None:
+                collection_object.uploaded = 'no'
                 continue
             call="collection/push/{}".format(collection_object.collection_id)
             self.logger.info("POST {}".format(call))
