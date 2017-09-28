@@ -83,7 +83,6 @@ if args.mode=="easydb4":
     if pg_dsn is None:
         logging.warning('No Postgres-DSN provided. Program will terminate now')
         sys.exit(0)
-
     if args.sqlite_file:
         sqlite_file = args.sqlite_file
     if sqlite_file is None:
@@ -110,7 +109,7 @@ if args.mode=="easydb4":
                     eas_verions[split[0]].append(split[1])
             else:
                 eas_versions[split[0]]=[split[1]]
-        
+
     print("eas-info: \n")
     print(eas_instance)
     print(eas_url)
