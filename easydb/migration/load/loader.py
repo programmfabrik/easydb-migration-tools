@@ -592,22 +592,20 @@ class Loader(object):
                         break
                 else:
                     raise Exception('table {0} not found'.format(column_def.other_table))
-                for column in other_ot.columns.values():
-                    print("AUS DER FOR")
-                    print(column.name + "," + column.kind + "," + column.column_type)
-                    if column.kind=="column" and column.column_type=="link":
-                            print(column.other_table)
-                            if column.other_table == column_def.name:
-                                print("ICCH WUSSTE ES DOCH")
-                                with open(self.destination.directory+"/skipped.csv", 'a') as output:
-                                    fieldnames=['object','column']
-                                    writer = csv.DictWriter(output, fieldnames=fieldnames)
-                                    writer.writerow(
-                                    {
-                                        'object': column_def.name,
-                                        'column': other_ot.name
-                                    })
-                                continue
+                
+                #for other_column in other_ot.columns.values():
+                #    if other_column.kind=="column" and other_column.column_type=="link":
+                #            if other_column.other_table == column_def.name:
+                #                with open(self.destination.directory+"/skipped.csv", 'a') as output:
+                #                    fieldnames=['object','column']
+                #                    writer = csv.DictWriter(output, fieldnames=fieldnames)
+                #                    writer.writerow(
+                #                    {
+                #                        'object': column_def.name,
+                #                        'column': other_ot.name
+                #                    })
+                #                continue
+
                 if other_ot.name in self.custom_nested_loaders:
                     logger.debug('[{0}] from custom nested loader: {1}'.format(self.objecttype.name, other_ot.name))
                     value = self.custom_nested_loaders[other_ot.name].load(db, o.source_id)
