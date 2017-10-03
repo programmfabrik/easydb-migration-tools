@@ -610,7 +610,7 @@ class Loader(object):
                     logger.debug('[{0}] from custom nested loader: {1}'.format(self.objecttype.name, other_ot.name))
                     value = self.custom_nested_loaders[other_ot.name].load(db, o.source_id)
                 else:
-                    logger.info('[{0}] subloader {1}'.format(self.objecttype.name, other_ot.name))
+                    logger.debug('[{0}] subloader {1}'.format(self.objecttype.name, other_ot.name))
                     # FIXME: do properly
                     subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, db, self.ezapi, self.tmp_asset_file, self, o.source_id)
                     subloader.prepare_query(self.source)
