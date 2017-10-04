@@ -214,7 +214,7 @@ def load_collection_objects(
     loop = True
     while(loop):
         loop = False
-        sql = 'SELECT * FROM "easydb.ez_collection__objects" where "uploaded" is null'
+        sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__source_unique_id) where co."uploaded" is null'
         rows = db.execute(sql)
         job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)
         for row in rows:
