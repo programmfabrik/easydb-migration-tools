@@ -79,15 +79,15 @@ class EasydbAPI(object):
         return self.token is not None
 
     @authenticated
-    def get(self, what, params={}):
+    def get(self, what, params={}, js=None):
         p = self.add_token_param(params)
-        return self._get(what, p)
+        return self._get(what, p, js)
 
     @parsed
-    def _get(self, what, params={}):
+    def _get(self, what, params={}, js=None):
         self.logger.debug('get {0} - {1}'.format(what, params))
         url = self.get_url(what)
-        return requests.get(url, params=params, auth=self.auth)
+        return requests.get(url, params=params, auth=self.auth, json=js)
 
     @authenticated
     def post(self, what, js=None, params={}, files=None):

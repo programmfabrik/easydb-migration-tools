@@ -72,6 +72,9 @@ def load(
                 cnl = custom_nested_loaders[objecttype]
             load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl, cnl)
 
+    #for objecttype in objecttypes:
+    #    if objecttype not in ('ez_pool','ez_group', 'ez_user', 'ez_tag', 'ez_collection', 'ez_collection_objects'):
+    #        load_links(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
     if manage_source:
         source.close()
 
@@ -426,6 +429,24 @@ def get_next_objects(db, objecttype):
         sql = sql_get_next_objects
     return db.execute(sql.format(objecttype.name))
 
+def load_links(
+    source, 
+    destination, 
+    ezapi, 
+    eas_url, 
+    eas_instance, 
+    batch_size, 
+    ez_schema, 
+    objecttype, 
+    tmp_asset_file, 
+    stop_on_error, 
+    search_assets, 
+    verify_ssl):
+    objecttype = ez_schema.objecttypes[objecttype]
+    
+    loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
+    loader.load_linked()
+
 class Loader(object):
 
     def __init__(self, source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl = True, uplink_id=None):
@@ -543,6 +564,77 @@ class Loader(object):
                 self.logger.error('Could not load batch (do not stop on error):\n{0}'.format(str(e)))
         logger.info('[{0}] end'.format(self.objecttype.name))
 
+    def load_linked(self):
+        logger.info('[{0}] Updating Links'.format(self.objecttype.name))
+        db = self.destination.get_db()
+        db.open()
+        rows = db.execute('SELECT * FROM "easydb.{}"'.format(self.objecttype.name))
+        for row in rows:
+            id=row['__easydb_id']
+            goid = row['__easydb_goid']
+
+            url='db/{}/_all_fields/{}'.format(self.objecttype.name,id)
+
+            obj=self.ezapi.get(url)
+
+            for column_def in self.objecttype.columns.values():
+                if column_def.kind == 'link':
+                    for ot_name, ot in self.ez_schema.objecttypes.items():
+                        if ot_name == column_def.other_table:
+                            other_ot = ot
+                            break
+                    else:
+                        raise Exception('table {0} not found'.format(column_def.other_table))
+                    linked_objects=[]
+                    other_rows=db.execute('SELECT * FROM "easydb.{}" WHERE __uplink_id={}'.format(other_ot.name,row['__source_unique_id']))
+                    for other_row in other_rows:
+                        linked_object={}
+                        for other_column_def in other_ot.columns.values():
+                            if other_column_def.column_type=="eas":
+                                print(other_row)
+                                asset_info=self._load_assets(db, other_row['__source_unqiue_id'],other_column_def, other_ot)
+                                value=[]
+                                for eas_id, preferred in asset_info:
+                                    value.append({'_id': eas_id, 'preferred': preferred})
+                                linked_object[column]=value
+                                continue
+                            for column in other_row.keys():
+                                if column == other_column_def.name:
+                                    for const in other_ot.constraints:
+                                        print(column)
+                                        print(const.ref_columns)
+                                        if column in const.own_columns:
+                                            ref_table=const.ref_table_name
+                                            sql='SELECT * FROM "{}" WHERE __source_unique_id={}'.format(ref_table,other_row[column])
+                                            linked_row=db.execute(sql).get_rows()
+                                            linked_object[column]={}
+                                            linked_object[column]["_objecttype"]=const.ref_table_name[7:]
+                                            linked_object[column]["_mask"]=const.ref_table_name[7:]+"__all_fields"
+                                            linked_object[column][const.ref_table_name[7:]]={}
+                                            linked_object[column][const.ref_table_name[7:]]["_id"]=int(linked_row[0]["__easydb_id"])
+                                        else:
+                                            linked_object[column]=other_row[column]
+                                        break
+                                    break
+                        linked_objects.append(linked_object)
+                    if '_nested:{}'.format(other_ot.name) in obj[0][self.objecttype.name].keys():
+                        obj[0][self.objecttype.name]['_nested:{}'.format(other_ot.name)].extend(linked_objects)
+                    else:
+                        obj[0][self.objecttype.name]['_nested:{}'.format(other_ot.name)] = linked_objects
+
+                elif column_def.kind == 'column' and column_def.column_type == 'link':
+                    for const in self.objecttype.constraints:
+                        if column_def.name in const.ref_columns:
+                            ref_table=const.ref_table_name
+                            linked_row=db.execute('SELECT * FROM "easydb.{}" WHERE __source_unique_id={}'.format(ref_table,row['__source_unique_id']))
+                            obj[0][self.objecttype.name][column_def.name]=linked_row[0]["__easydb_id"]
+                            break
+                    else:
+                        obj[0][self.objecttype.name][column_def.name]=row[column_def.name]
+            obj[0][self.objecttype.name]['_version']+=1
+            logger.info('[{0}] updating {1}'.format(self.objecttype.name,goid))
+            response=self.ezapi.post("db/{}".format(self.objecttype.name), obj)
+
     def execute_query(self, db, object_source_ids):
         args = []
         sql_columns = self.columns.select()
@@ -574,7 +666,7 @@ class Loader(object):
             o._parent_id = rows[0]['f{0}'.format(current_col)]
         for column_def in self.objecttype.columns.values():
             if column_def.kind == 'column':
-                if column_def.column_type == 'eas':
+                if column_def.column_type == 'eas' or column_def.column_type == 'link':
                     continue
                 elif 'l10n' in column_def.column_type:
                     l = self.destination.get_schema_languages()
@@ -584,52 +676,11 @@ class Loader(object):
                         value[language] = rows[0][self.columns.get_column(name).alias]
                 else:
                     value = rows[0][self.columns.get_column(column_def.name).alias]
-            
-            elif column_def.kind == 'link':
-                for ot_name, ot in self.ez_schema.objecttypes.items():
-                    if ot_name == column_def.other_table:
-                        other_ot = ot
-                        break
-                else:
-                    raise Exception('table {0} not found'.format(column_def.other_table))
-                
-                #for other_column in other_ot.columns.values():
-                #    if other_column.kind=="column" and other_column.column_type=="link":
-                #            if other_column.other_table == column_def.name:
-                #                with open(self.destination.directory+"/skipped.csv", 'a') as output:
-                #                    fieldnames=['object','column']
-                #                    writer = csv.DictWriter(output, fieldnames=fieldnames)
-                #                    writer.writerow(
-                #                    {
-                #                        'object': column_def.name,
-                #                        'column': other_ot.name
-                #                    })
-                #                continue
 
-                if other_ot.name in self.custom_nested_loaders:
-                    logger.debug('[{0}] from custom nested loader: {1}'.format(self.objecttype.name, other_ot.name))
-                    value = self.custom_nested_loaders[other_ot.name].load(db, o.source_id)
-                else:
-                    logger.debug('[{0}] subloader {1}'.format(self.objecttype.name, other_ot.name))
-                    # FIXME: do properly
-                    subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, db, self.ezapi, self.tmp_asset_file, self, o.source_id)
-                    subloader.prepare_query(self.source)
-                    subrows = subloader.execute_query()
-                    current_source_id = None
-                    current_rows = []
-                    value = []
-                    for row in subrows:
-                        this_source_id = row['f0']
-                        if current_source_id is None:
-                            current_source_id = this_source_id
-                        elif this_source_id != current_source_id:
-                            value.append(subloader.build_object(current_rows))
-                            current_rows = []
-                        current_rows.append(row)
-                        current_source_id = this_source_id
-                    if len(current_rows) > 0:
-                        value.append(subloader.build_object(current_rows))
+            elif column_def.kind == 'link':
+                continue
             o.fields[column_def.name] = value
+            
         if self.objecttype.has_tags:
             sql = 'select b.__easydb_id as id from "tag.{0}" a join "easydb.ez_tag" b on (a.tag_id = b.__source_unique_id) where a.object_id = ? and b.__easydb_id is not null'.format(self.objecttype.name)
             rows = db.execute(sql, o.source_id)
@@ -649,7 +700,7 @@ class Loader(object):
             if row['__easydb_id'] is None:
                 objects_to_push.append(o)
             else:
-                self.logger.debug('skipping object {0}:{1} because if was already pushed'.format(self.objecttype.name, o.source_id))
+                self.logger.debug('skipping object {0}:{1} because it was already pushed'.format(self.objecttype.name, o.source_id))
         if len(objects_to_push) == 0:
             return
         for column_def in self.objecttype.columns.values():

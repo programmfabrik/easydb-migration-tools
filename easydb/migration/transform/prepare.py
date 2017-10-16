@@ -203,6 +203,7 @@ class DestinationSchema(object):
         self._add_column(table_def, '__mask', 'text')
         self._add_column(table_def, '__comment', 'text')
         self._add_column(table_def, 'collection_id', 'text')
+        self._add_column(table_def, '__updated', 'text')
         if ot.pool_link:
             self._add_column(table_def, '__pool_id', 'text')
         if ot.is_hierarchical:

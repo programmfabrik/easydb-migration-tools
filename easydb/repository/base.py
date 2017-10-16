@@ -119,7 +119,7 @@ class ForeignKeyConstraintDefinition(object):
             extra = ' - deferrable'
         if self.on_delete:
             extra += ' - on delete {0}'.format(self.on_delete)
-        return 'foreign key ({0}) -> {1} ({2}){3}'.format(', '.join(self.own_columns), self.ref_table_name, ', '.join(self.ref_columns, extra))
+        return 'foreign key ({0}) -> {1} ({2}){3}'.format(', '.join(self.own_columns), self.ref_table_name, ', '.join(self.ref_columns), extra)
 
 class UniqueConstraintDefinition(object):
     def __init__(self, columns):
