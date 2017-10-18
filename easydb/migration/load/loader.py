@@ -197,6 +197,7 @@ def load_collection_objects(
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables_rows=tables.get_rows()
+    db.close()
 
     for table in tables_rows:
         logger.info('Updating collection_objects GOID for type {}'.format(table['name']))
@@ -207,17 +208,23 @@ def load_collection_objects(
         for column in columns_rows:
             name = column['name']
             if name == "collection_id":
+                db.open()
                 rows = db.execute('SELECT __source_unique_id, __easydb_goid, collection_id FROM "{}"'.format(table['name']))
                 rows_rows=rows.get_rows()
+                db.close()
                 for row in rows_rows:
                     if row['collection_id'] is not None:
+                        db.open()
                         db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = "{}" WHERE object_id = "{}"'.format(row['__easydb_goid'], row['__source_unique_id']))
+                        db.close()
     logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
         loop = False
+        db.open()
         sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__source_unique_id) where co."uploaded" is null'
-        rows = db.execute(sql)
+        rows = db.execute(sql).get_rows()
+        db.close()
         job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)
         for row in rows:
             loop = True
@@ -225,8 +232,10 @@ def load_collection_objects(
         job.finish()
 
     logger.debug("ADDING FONTEND_PROPS FOR PRESENTATIONS")
+    db.open()
     presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "presentation"')
     presentations_rows=presentations.get_rows()
+    db.close()
     for presentation in presentations_rows:
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
         slides_rows=slides.get_rows()
@@ -249,8 +258,9 @@ def load_collection_objects(
 def load_collection_objects_batch(batch, ezapi, db):
     ezapi.create_collection_objects(batch)
     for collection_object in batch:
+        db.open()
         db.execute(sql_update_collection_object_easydb_id, collection_object.uploaded, collection_object.source_id)
-
+        db.close()
 # - Groups#
 
 def load_groups(
@@ -442,6 +452,15 @@ def load_links(
     search_assets, 
     verify_ssl):
     objecttype = ez_schema.objecttypes[objecttype]
+    has_lins=False
+    for column_def in self.objecttype.columns.values():
+            if column_def.kind == 'link':
+                has_links=True
+            elif column_def.kind == 'column' and column_def.column_type == 'link':
+                has_links=True
+    if not has_links:
+        logger.info('[{0}] Skipping, has no links'.format(objecttype.name))
+        return
     logger.info('[{0}] Updating Links'.format(objecttype.name))
     loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
     loop = True
@@ -1017,254 +1036,6 @@ from {0}
 where object_id = ?
 """
 
-# old stuff
-
-class LoaderOld(object):
-
-    def __init__(self, destination, ez_schema, objecttype, db, ezapi, tmp_asset_file, new_loader, uplink_id = None):
-        self.destination = destination
-        self.ez_schema = ez_schema
-        self.objecttype = ez_schema.objecttypes[objecttype]
-        self.db = db
-        self.ezapi = ezapi
-        self.uplink_id = uplink_id
-        self.table_def = destination.get_table_for_objecttype(objecttype)
-        self.tmp_asset_file = tmp_asset_file
-        self.new_loader=new_loader
-        
-    def load(self, source):
-        logger.debug('load {0}'.format(self.objecttype.name))
-        manage_source = not source.is_open()
-        if manage_source:
-            source.open()
-        while True:
-            if not self._load(source):
-                break
-        if manage_source:
-            source.close()
-
-    def _load(self, source):
-        self.source = source # temp
-        objects_pending = [False]
-        self.prepare_query(source)
-        rows = self.execute_query()
-        current_source_id = None
-        current_rows = []
-        objects = []
-        for row in rows:
-            this_source_id = row['f0']
-            if current_source_id is None:
-                current_source_id = this_source_id
-            elif this_source_id != current_source_id:
-                if self.process_object(objects, current_rows, objects_pending):
-                    objects = []
-                current_rows = []
-            current_rows.append(row)
-            current_source_id = this_source_id
-        self.process_object(objects, current_rows, objects_pending, True)
-        return objects_pending[0]
-
-    def process_object(self, objects, rows, objects_pending, last=False):
-        if len(rows) > 0:
-            o = self.build_object(rows)
-            append_object = True
-            if self.objecttype.is_hierarchical:
-                sql = """
-select count(*) as count
-from "{0}" p join "{0}" c
-where c."__parent_id" = p."__source_unique_id"
-and p."__easydb_id" is null
-and c."__source_unique_id" = ?
-""".format(self.table_def.name)
-                rows = self.db.execute(sql, o.source_id)
-                row = rows.next()
-                if row['count'] > 0:
-                    objects_pending[0] = True
-                    append_object = False
-            if append_object:
-                objects.append(o)
-        if len(objects) >= 10 or last:
-            self.push_objects(objects)
-            return True
-        else:
-            return False
-
-    def build_object(self, rows):
-        o = Object(self.objecttype)
-        o.source_id = rows[0]['f0']
-        current_col = 0
-        if not self.uplink_id:
-            current_col += 1
-            comment = rows[0]['f{0}'.format(current_col)]
-            if comment is not None:
-                o._comment = comment
-        if self.objecttype.pool_link:
-            current_col += 1
-            o._pool_id = rows[0]['f{0}'.format(current_col)]
-        if self.objecttype.is_hierarchical:
-            current_col += 1
-            o._parent_id = rows[0]['f{0}'.format(current_col)]
-        for column_def in self.objecttype.columns.values():
-            if column_def.kind == 'column':
-                if column_def.column_type == 'eas':
-                    asset_info = self.new_loader._load_assets(self.db, o.source_id, column_def, self.objecttype)
-                    if not column_def.name in o.fields.keys():
-                        o.fields[column_def.name]=[]
-                    if asset_info:
-                        o.fields[column_def.name].append({"_id": asset_info[0][0],"preferred": asset_info[0][1]})   
-                    continue
-                    value = []
-                    eas_id_alias = None
-                    preferred_alias = None
-                    columns = self.columns.get_columns(column_def.name)
-
-                    for column in columns:
-                        if column.name == '__eas_id':
-                            eas_id_alias = column.alias
-                        elif column.name == 'preferred':
-                            preferred_alias = column.alias
-                    if eas_id_alias is None or preferred_alias is None:
-                        raise Exception('failed to find eas columns')
-                    preferred_found = False
-                    for row in rows:
-                        eas_id = row[eas_id_alias]
-                        if eas_id is None:
-                            continue
-                        if not preferred_found:
-                            preferred = row[preferred_alias] == 1
-                        else:
-                            preferred = False
-                        value.append({'_id': eas_id, 'preferred': preferred})
-                else:
-                    value = rows[0][self.columns.get_column(column_def.name).alias]
-                    if isinstance(value, str) and len(value) > 0:
-                        value = re.sub(r'\^\\', '', value)
-                        value = re.sub('\u0015', '', value, re.UNICODE)
-                        value = re.sub('\u0005', '', value, re.UNICODE)
-                        value = re.sub('\u001a', '', value, re.UNICODE)
-                        value = re.sub('\f', '', value, re.UNICODE)
-            elif column_def.kind == 'link':
-                for ot_name, ot in self.ez_schema.objecttypes.items():
-                    if ot_name == column_def.other_table:
-                        other_ot = ot
-                        break
-                else:
-                    raise Exception('table {0} not found'.format(column_def.other_table))
-                # FIXME: do properly
-                subloader = LoaderOld(self.destination, self.ez_schema, other_ot.name, self.db, self.ezapi, self.tmp_asset_file, self, o.source_id)
-                subloader.prepare_query(self.source)
-                subrows = subloader.execute_query()
-                current_source_id = None
-                current_rows = []
-                value = []
-                for row in subrows:
-                    this_source_id = row['f0']
-                    if current_source_id is None:
-                        current_source_id = this_source_id
-                    elif this_source_id != current_source_id:
-                        value.append(subloader.build_object(current_rows))
-                        current_rows = []
-                    current_rows.append(row)
-                    current_source_id = this_source_id
-                if len(current_rows) > 0:
-                    value.append(subloader.build_object(current_rows))
-            o.fields[column_def.name] = value
-        return o
-
-    def push_objects(self, objects):
-        check_sql = 'select "__easydb_id" from "easydb.{0}" where "__source_unique_id" = ?'.format(self.objecttype.name)
-        objects_to_push = []
-        for o in objects:
-            rows = self.db.execute(check_sql, o.source_id)
-            row = rows.next()
-            if row['__easydb_id'] is None:
-                objects_to_push.append(o)
-            else:
-                self.logger.debug('skipping object {0}:{1} because if was already pushed'.format(self.objecttype.name, o.source_id))
-        if len(objects_to_push) == 0:
-            return
-        self.ezapi.create_objects(objects_to_push)
-        update_sql = 'update "easydb.{0}" set "__easydb_id" = ? where "__source_unique_id" = ?'.format(self.objecttype.name)
-        for o in objects:
-            rows = self.db.execute(update_sql, o.id, o.source_id)
-            if rows.rowcount != 1:
-                raise Exception('could not update easydb id')
-
-    def execute_query(self):
-        args = []
-        sql_columns = self.columns.select()
-        sql_main_table = self.tables.main().name_alias
-        sql_joins = '\n'.join(self.joins)
-        sql_where = 't0."__easydb_id" is null'
-        sql_order = 'order by t0."__source_unique_id"'
-        if self.uplink_id is not None:
-            sql_where += ' and t0."__uplink_id" = ?'
-            sql_order = 'order by t0."__uplink_id"'
-            args.append(self.uplink_id)
-        sql = 'select {0}\nfrom {1}\n{2}\nwhere {3}\n{4}'.format(sql_columns, sql_main_table, sql_joins, sql_where, sql_order)
-        return self.db.execute(sql, *args)
-
-    def prepare_query(self, source):
-        self.tables = LoaderTables()
-        self.columns = LoaderColumns()
-        self.selects = []
-        self.joins = []
-        self.tables.add(self.table_def.name)
-        self.columns.add(self.tables.main(), '__source_unique_id', '_id')
-        if self.uplink_id is None:
-            self.columns.add(self.tables.main(), '__comment', '__comment')
-        else:
-            self.columns.add(self.tables.main(), '__uplink_id', '__uplink_id')
-        if self.objecttype.pool_link:
-            self.prepare_query__pool()
-        if self.objecttype.is_hierarchical:
-            self.prepare_query__parent()
-        for column_def in self.objecttype.columns.values():
-            if column_def.kind == 'column':
-                if column_def.column_type == 'link':
-                    self.prepare_query__link(column_def)
-                elif column_def.column_type == 'eas':
-                    self.prepare_query__eas(column_def)
-                else:
-                    if 'l10n' in column_def.column_type:
-                        languages =  self.destination.get_schema_languages()
-                        for language in languages:
-                            name=column_def.name+":"+language
-                            self.columns.add(self.tables.main(), name, column_def.name, l10n=True)
-                    else:
-                        self.columns.add(self.tables.main(), column_def.name, column_def.name)
-
-    def prepare_query__link(self, column_def):
-        for constraint_def in self.table_def.constraints:
-            if isinstance(constraint_def, ForeignKeyConstraintDefinition):
-                # FIXME: support only 1-to-1 fks
-                if len(constraint_def.own_columns) != 1 or len(constraint_def.ref_columns) != 1:
-                    raise Exception('fks with more than one column not yet supported')
-                field_name = constraint_def.own_columns[0]
-                if column_def.name == field_name:
-                    rt = self.tables.add(constraint_def.ref_table_name)
-                    rc = quote_name(constraint_def.ref_columns[0])
-                    oc = quote_name(field_name)
-                    self.columns.add(rt, '__easydb_id', field_name)
-                    self.joins.append('left join {0} on {1}.{2} = t0.{3}'.format(rt.name_alias, rt.alias, rc, oc))
-                    return
-        raise Exception('could not find a foreign key for link {0}'.format(name))
-
-    def prepare_query__eas(self, column_def):
-        table = self.tables.add('asset.{0}.{1}'.format(self.objecttype.name, column_def.name))
-        self.columns.add(table, '__eas_id', column_def.name)
-        self.columns.add(table, 'preferred', column_def.name)
-        self.joins.append('left join {0} on {1}."__source_unique_id" = t0."__source_unique_id"'.format(table.name_alias, table.alias))
-
-    def prepare_query__parent(self):
-        table = self.tables.add(self.table_def.name)
-        self.columns.add(table, '__easydb_id', '__parent_id')
-        self.joins.append('left join {0} on {1}."__source_unique_id" = t0."__parent_id"'.format(table.name_alias, table.alias))
-
-    def prepare_query__pool(self):
-        table = self.tables.add("easydb.ez_pool")
-        self.columns.add(table, '__easydb_id', '__pool_id')
-        self.joins.append('left join {0} on {1}."__source_unique_id" = t0."__pool_id"'.format(table.name_alias, table.alias))
 
 class LoaderTables(object):
     def __init__(self):

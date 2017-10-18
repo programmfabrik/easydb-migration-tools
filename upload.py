@@ -38,18 +38,26 @@ logging.getLogger('easydb.server').setLevel('WARN')
 logging.getLogger('requests').setLevel('WARN')
 logging.getLogger('easydb.repository').setLevel('WARN')
 logging.getLogger('easydb.migration.load.loader').setLevel('INFO')
-
+logging.getLogger('easydb.server.api').setLevel('INFO')
 
 # add all tables (just names without easydb in front), that are supposed to be uploaded
 # dont include: link-tables (example__linked_object), file and system tables
 
 objecttypes = [
-     'ez_group', 'ez_user', 'ez_pool', 'ez_collection'
+     'ez_group',
+     'ez_user',
+     'ez_pool',
+     'ez_collection'
 ]
 job.load(objecttypes)
 
 #####INSERT CUSTOM OBJECT-TYPES HERE
-objecttypes = []
+objecttypes = [
+        "CUSTOM_1",
+        "CUSTOM_2",
+        "..."
+    ]
+
 job.load(objecttypes)#incase https is necessary call with "verify_ssl=False" ##to skip Searching for existing assets call with "search_assets=False"
 
 objecttypes = [
