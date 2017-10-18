@@ -197,20 +197,25 @@ def load_collection_objects(
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables_rows=tables.get_rows()
+    del(tables)
     db.close()
 
     for table in tables_rows:
         logger.info('Updating collection_objects GOID for type {}'.format(table['name']))
         if table['name'] == "easydb.ez_collection__objects":
             continue
+        db.open()
         columns = db.execute('PRAGMA table_info("{}")'.format(table['name']))
         columns_rows=columns.get_rows()
+        del(columns)
+        db.close()
         for column in columns_rows:
             name = column['name']
             if name == "collection_id":
                 db.open()
                 rows = db.execute('SELECT __source_unique_id, __easydb_goid, collection_id FROM "{}"'.format(table['name']))
                 rows_rows=rows.get_rows()
+                del(rows)
                 db.close()
                 for row in rows_rows:
                     if row['collection_id'] is not None:
@@ -220,6 +225,7 @@ def load_collection_objects(
     logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
+        print("BIS ZUR WHILE")
         loop = False
         db.open()
         sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__source_unique_id) where co."uploaded" is null'
@@ -235,10 +241,14 @@ def load_collection_objects(
     db.open()
     presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "presentation"')
     presentations_rows=presentations.get_rows()
+    del(presentations)
     db.close()
     for presentation in presentations_rows:
+        db.open()
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
         slides_rows=slides.get_rows()
+        del(slides)
+        db.close()
         name= presentation["displayname:de-DE"]
         slides_a=[]
         for slide in slides_rows:
