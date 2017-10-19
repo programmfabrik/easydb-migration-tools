@@ -65,6 +65,7 @@ if args.mode=="easydb4":
     if args.config is not None:
         req_url='{}/ezadmin/dumpconfig'.format(args.config[0])
         ez_conf = requests.get(req_url, auth=(args.config[1],args.config[2])).json()
+        print(json.dumps(ez_conf,indent=4))
         name = req_url.split('.')[0].split('//')[1]
 
         pg_dsn = ez_conf['PDO_DATA_DSN'].split(':')[1].replace(';',' ')
@@ -111,9 +112,9 @@ if args.mode=="easydb4":
                 eas_versions[split[0]]=[split[1]]
 
     print("eas-info: \n")
-    print(eas_instance)
-    print(eas_url)
-    print(eas_versions)
+    print("Instance: " + eas_instance)
+    print("URL: " + eas_url)
+    print("VERSIONS: " + str(eas_versions))
     print("\n sqlite-file: \n")
     print(sqlite_file)
     print("PG-DSN")
