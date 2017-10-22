@@ -462,7 +462,7 @@ def load_links(
     search_assets, 
     verify_ssl):
     objecttype = ez_schema.objecttypes[objecttype]
-    has_lins=False
+    has_links=False
     for column_def in self.objecttype.columns.values():
             if column_def.kind == 'link':
                 has_links=True

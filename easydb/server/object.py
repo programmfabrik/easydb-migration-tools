@@ -86,6 +86,8 @@ class Object(object):
             elif column.column_type == 'boolean':
                 if value is None:
                     value = False
+                else:
+                    value = value
             elif column.column_type == 'integer.2':
                 if value is None or value == '':
                     value = None
