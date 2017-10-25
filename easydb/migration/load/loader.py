@@ -473,21 +473,13 @@ def load_links(
         return
     logger.info('[{0}] Updating Links'.format(objecttype.name))
     loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
-    loop = True
-    while(loop):
-        loop = False
-        db = destination.get_db()
-        db.open()
-        rows = db.execute('SELECT * FROM "easydb.{}" WHERE __updated is NULL LIMIT {}'.format(objecttype.name,batch_size))
-        objects_in=[]
+    number_of_objects=easydb_api.post("search?pretty=0",js=search_js)["count"]
+    offset=0
+    db = destination.get_db()
+    while((offset+batch_size)<number_of_objects):
         logger.info('[{0}] Fetching Objects'.format(objecttype.name))
-        for row in rows:
-            id=row['__easydb_id']
-            goid = row['__easydb_goid']
-            url='db/{}/_all_fields/{}'.format(objecttype.name,id)
-            objects_in.append(ezapi.get(url,{'format': 'long'}))
-        del rows
-        db.close()
+        objects_in=easydb_api.get("db/bilder/_all_fields/list?limit={0}&offset={1}&format=short".format(batch_size,offset))
+        offset+=batch_size
         objects_out=[]
         for object in objects_in:
             loop = True
@@ -1046,6 +1038,21 @@ from {0}
 where object_id = ?
 """
 
+search_js={
+   "offset": 0,
+   "limit": 1,
+   "generate_rights": False,
+   "search": [
+      {
+         "bool": "must",
+         "type": "in",
+         "fields": ["_objecttype"],
+         "in": [
+            objecttype
+         ]
+      }
+   ]
+}
 
 class LoaderTables(object):
     def __init__(self):
