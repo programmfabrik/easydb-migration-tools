@@ -461,9 +461,10 @@ def load_links(
     stop_on_error, 
     search_assets, 
     verify_ssl):
+    
     objecttype = ez_schema.objecttypes[objecttype]
     has_links=False
-    for column_def in self.objecttype.columns.values():
+    for column_def in objecttype.columns.values():
             if column_def.kind == 'link':
                 has_links=True
             elif column_def.kind == 'column' and column_def.column_type == 'link':
@@ -473,16 +474,37 @@ def load_links(
         return
     logger.info('[{0}] Updating Links'.format(objecttype.name))
     loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
-    number_of_objects=easydb_api.post("search?pretty=0",js=search_js)["count"]
+    search_js={
+    "offset": 0,
+    "limit": 1,
+    "generate_rights": False,
+    "search": [{
+        "bool": "must",
+        "type": "in",
+        "fields": ["_objecttype"],
+        "in": [
+            objecttype.name
+    ]}]}   
+    res=ezapi.post("search?pretty=0",search_js)
+    number_of_objects=res["count"]
+
     offset=0
     db = destination.get_db()
-    while((offset+batch_size)<number_of_objects):
+    while((offset+1000)<number_of_objects):
         logger.info('[{0}] Fetching Objects'.format(objecttype.name))
-        objects_in=easydb_api.get("db/bilder/_all_fields/list?limit={0}&offset={1}&format=short".format(batch_size,offset))
-        offset+=batch_size
+        objects_in=ezapi.get("db/{0}/_all_fields/list?limit=1000&offset={1}&format=short".format(objecttype.name,offset))
+        offset+=1000
         objects_out=[]
         for object in objects_in:
-            loop = True
+            db.open()
+            rows=db.execute('SELECT * FROM "easydb.{}" WHERE __easydb_goid= "{}"'.format(objecttype.name,object["_global_object_id"]))
+            rows=rows.get_rows()
+            db.close()
+            if len(rows)>1:
+                raise Exception('Duplicate IDs in Database')
+            row=rows[0]
+            if row["__updated"]:
+                continue
             objects_out.append(loader.load_linked(object,row))
             if len(objects_out)>=batch_size or len(objects_out)==len(objects_in):
                 logger.info('[{0}] updating batch of {1}'.format(objecttype.name,batch_size))
@@ -491,9 +513,10 @@ def load_links(
                     raise Exception('response objects are different from pushed objects')
                 db.open()
                 for obj in response:
+                    db.open()
                     query='UPDATE "easydb.{}" SET __updated = "TRUE" WHERE __easydb_goid="{}"'.format(objecttype.name, obj["_global_object_id"])
                     db.execute(query)
-                db.close()
+                    db.close()
                 objects_out=[]     
     logger.info('[update-objects] end')
 
@@ -659,22 +682,23 @@ class Loader(object):
                                 break
                     linked_objects.append(linked_object)
 
-                if '_nested:{}'.format(other_ot.name) in obj[0][self.objecttype.name].keys():
-                    obj[0][self.objecttype.name]['_nested:{}'.format(other_ot.name)].extend(linked_objects)
+                if '_nested:{}'.format(other_ot.name) in obj[self.objecttype.name].keys():
+                    obj[self.objecttype.name]['_nested:{}'.format(other_ot.name)].extend(linked_objects)
                 else:
-                    obj[0][self.objecttype.name]['_nested:{}'.format(other_ot.name)] = linked_objects
+                    obj[self.objecttype.name]['_nested:{}'.format(other_ot.name)] = linked_objects
 
             elif column_def.kind == 'column' and column_def.column_type == 'link':
                 for const in self.objecttype.constraints:
                     if column_def.name in const.ref_columns:
                         ref_table=const.ref_table_name
                         linked_row=db.execute('SELECT * FROM "easydb.{}" WHERE __source_unique_id={}'.format(ref_table,row['__source_unique_id']))
-                        obj[0][self.objecttype.name][column_def.name]=linked_row[0]["__easydb_id"]
+                        obj[self.objecttype.name][column_def.name]=linked_row[0]["__easydb_id"]
                         break
                 else:
-                    obj[0][self.objecttype.name][column_def.name]=row[column_def.name]
-        obj[0][self.objecttype.name]['_version']+=1
-        return obj[0]
+                    obj[self.objecttype.name][column_def.name]=row[column_def.name]
+        obj[self.objecttype.name]['_version']+=1
+        print(json.dumps(obj,indent=4))
+        return obj
 
     def execute_query(self, db, object_source_ids):
         args = []
@@ -1038,21 +1062,7 @@ from {0}
 where object_id = ?
 """
 
-search_js={
-   "offset": 0,
-   "limit": 1,
-   "generate_rights": False,
-   "search": [
-      {
-         "bool": "must",
-         "type": "in",
-         "fields": ["_objecttype"],
-         "in": [
-            objecttype
-         ]
-      }
-   ]
-}
+
 
 class LoaderTables(object):
     def __init__(self):
