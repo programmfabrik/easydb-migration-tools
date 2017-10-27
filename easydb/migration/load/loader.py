@@ -461,16 +461,26 @@ def load_links(
     stop_on_error, 
     search_assets, 
     verify_ssl):
-    
     objecttype = ez_schema.objecttypes[objecttype]
     has_links=False
+    updated=False
     for column_def in objecttype.columns.values():
             if column_def.kind == 'link':
                 has_links=True
             elif column_def.kind == 'column' and column_def.column_type == 'link':
                 has_links=True
+    db = destination.get_db()
+    if has_links:
+        db.open()
+        rows=db.execute('SELECT COUNT(*) FROM "easydb.{}" WHERE __updated is NULL'.format(objecttype.name)).get_rows()
+        db.close()
+        if rows[0]==0:
+            updated==True
     if not has_links:
         logger.info('[{0}] Skipping, has no links'.format(objecttype.name))
+        return
+    if updated:
+        logger.info('[{0}] Skipping, objecttype already updated'.format(objecttype.name))
         return
     logger.info('[{0}] Updating Links'.format(objecttype.name))
     loader = Loader(source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
@@ -489,15 +499,14 @@ def load_links(
     number_of_objects=res["count"]
 
     offset=0
-    db = destination.get_db()
-    while((offset+1000)<number_of_objects):
+    while(offset<number_of_objects):
         logger.info('[{0}] Fetching Objects'.format(objecttype.name))
-        objects_in=ezapi.get("db/{0}/_all_fields/list?limit=1000&offset={1}&format=short".format(objecttype.name,offset))
+        objects_in=ezapi.get("db/{0}/_all_fields/list?limit=1000&offset={1}&format=long".format(objecttype.name,offset))
         offset+=1000
         objects_out=[]
-        for object in objects_in:
+        for i in range(0,len(objects_in)):
             db.open()
-            rows=db.execute('SELECT * FROM "easydb.{}" WHERE __easydb_goid= "{}"'.format(objecttype.name,object["_global_object_id"]))
+            rows=db.execute('SELECT * FROM "easydb.{}" WHERE __easydb_goid= "{}"'.format(objecttype.name,objects_in[i]["_global_object_id"]))
             rows=rows.get_rows()
             db.close()
             if len(rows)>1:
@@ -505,8 +514,8 @@ def load_links(
             row=rows[0]
             if row["__updated"]:
                 continue
-            objects_out.append(loader.load_linked(object,row))
-            if len(objects_out)>=batch_size or len(objects_out)==len(objects_in):
+            objects_out.append(loader.load_linked(objects_in[i],row))
+            if len(objects_out)>=batch_size or len(objects_out)==len(objects_in) or i==len(objects_in):
                 logger.info('[{0}] updating batch of {1}'.format(objecttype.name,batch_size))
                 response=ezapi.post("db/{}".format(objecttype.name), objects_out)
                 if len(response) != len(objects_out):
@@ -697,7 +706,6 @@ class Loader(object):
                 else:
                     obj[self.objecttype.name][column_def.name]=row[column_def.name]
         obj[self.objecttype.name]['_version']+=1
-        print(json.dumps(obj,indent=4))
         return obj
 
     def execute_query(self, db, object_source_ids):
