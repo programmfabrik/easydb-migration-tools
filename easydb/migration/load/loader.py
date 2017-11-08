@@ -225,7 +225,6 @@ def load_collection_objects(
     logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
-        print("BIS ZUR WHILE")
         loop = False
         db.open()
         sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__source_unique_id) where co."uploaded" is null'
@@ -449,17 +448,17 @@ def get_next_objects(db, objecttype):
     return db.execute(sql.format(objecttype.name))
 
 def load_links(
-    source, 
-    destination, 
-    ezapi, 
-    eas_url, 
-    eas_instance, 
-    batch_size, 
-    ez_schema, 
-    objecttype, 
-    tmp_asset_file, 
-    stop_on_error, 
-    search_assets, 
+    source,
+    destination,
+    ezapi,
+    eas_url,
+    eas_instance,
+    batch_size,
+    ez_schema,
+    objecttype,
+    tmp_asset_file,
+    stop_on_error,
+    search_assets,
     verify_ssl):
     objecttype = ez_schema.objecttypes[objecttype]
     has_links=False
@@ -494,7 +493,7 @@ def load_links(
         "fields": ["_objecttype"],
         "in": [
             objecttype.name
-    ]}]}   
+    ]}]}
     res=ezapi.post("search?pretty=0",search_js)
     number_of_objects=res["count"]
 
@@ -514,7 +513,9 @@ def load_links(
             row=rows[0]
             if row["__updated"]:
                 continue
-            objects_out.append(loader.load_linked(objects_in[i],row))
+            obj_o=loader.load_linked(objects_in[i],row)
+            logger.info("Object_Out: {}".format(json.dumps(obj_o,indent=4)))
+            objects_out.append(obj_o)
             if len(objects_out)>=batch_size or len(objects_out)==len(objects_in) or i==len(objects_in):
                 logger.info('[{0}] updating batch of {1}'.format(objecttype.name,batch_size))
                 response=ezapi.post("db/{}".format(objecttype.name), objects_out)
@@ -526,7 +527,7 @@ def load_links(
                     query='UPDATE "easydb.{}" SET __updated = "TRUE" WHERE __easydb_goid="{}"'.format(objecttype.name, obj["_global_object_id"])
                     db.execute(query)
                     db.close()
-                objects_out=[]     
+                objects_out=[]
     logger.info('[update-objects] end')
 
 class Loader(object):
@@ -656,7 +657,6 @@ class Loader(object):
                         break
                 else:
                     raise Exception('table {0} not found'.format(column_def.other_table))
-                
                 linked_objects=[]
                 db.open()
                 other_rows=db.execute('SELECT * FROM "easydb.{}" WHERE __uplink_id={}'.format(other_ot.name,row['__source_unique_id'])).get_rows()
@@ -665,7 +665,8 @@ class Loader(object):
                     linked_object={}
                     for other_column_def in other_ot.columns.values():
                         if other_column_def.column_type=="eas":
-                            asset_info=self._load_assets(db, other_row['__source_unqiue_id'],other_column_def, other_ot)
+                            continue
+                            asset_info=_load_assets(db, other_row['__source_unqiue_id'],other_column_def, other_ot)
                             value=[]
                             for eas_id, preferred in asset_info:
                                 value.append({'_id': eas_id, 'preferred': preferred})
@@ -682,29 +683,38 @@ class Loader(object):
                                         db.close()
                                         linked_object[column]={}
                                         linked_object[column]["_objecttype"]=const.ref_table_name[7:]
-                                        linked_object[column]["_mask"]=const.ref_table_name[7:]+"__all_fields"
+
+                                        linked_object[column]["_mask"]="_all_fields"
                                         linked_object[column][const.ref_table_name[7:]]={}
                                         linked_object[column][const.ref_table_name[7:]]["_id"]=int(linked_row[0]["__easydb_id"])
                                     else:
                                         linked_object[column]=other_row[column]
                                     break
-                                break
+                                break        
                     linked_objects.append(linked_object)
-
                 if '_nested:{}'.format(other_ot.name) in obj[self.objecttype.name].keys():
                     obj[self.objecttype.name]['_nested:{}'.format(other_ot.name)].extend(linked_objects)
                 else:
                     obj[self.objecttype.name]['_nested:{}'.format(other_ot.name)] = linked_objects
-
             elif column_def.kind == 'column' and column_def.column_type == 'link':
+                if not row[column_def.name]:
+                    continue
+                linked_object={}
                 for const in self.objecttype.constraints:
-                    if column_def.name in const.ref_columns:
+                    if column_def.name in const.own_columns:
                         ref_table=const.ref_table_name
-                        linked_row=db.execute('SELECT * FROM "easydb.{}" WHERE __source_unique_id={}'.format(ref_table,row['__source_unique_id']))
-                        obj[self.objecttype.name][column_def.name]=linked_row[0]["__easydb_id"]
+                        sql='SELECT * FROM "{}" WHERE __source_unique_id={}'.format(ref_table, row[column_def.name])
+                        db.open()
+                        linked_row=db.execute(sql).get_rows()
+                        db.close()
+                        linked_object["_objecttype"]=const.ref_table_name[7:]
+                        #linked_object[column]["_mask"]=const.ref_table_name[7:]+"__all_fields"
+                        linked_object["_mask"]="_all_fields"
+                        linked_object[const.ref_table_name[7:]]={}
+                        linked_object[const.ref_table_name[7:]]["_id"]=int(linked_row[0]["__easydb_id"])
                         break
-                else:
-                    obj[self.objecttype.name][column_def.name]=row[column_def.name]
+                obj[self.objecttype.name][column_def.name]=linked_object
+        
         obj[self.objecttype.name]['_version']+=1
         return obj
 
@@ -753,7 +763,7 @@ class Loader(object):
             elif column_def.kind == 'link':
                 continue
             o.fields[column_def.name] = value
-            
+
         if self.objecttype.has_tags:
             sql = 'select b.__easydb_id as id from "tag.{0}" a join "easydb.ez_tag" b on (a.tag_id = b.__source_unique_id) where a.object_id = ? and b.__easydb_id is not null'.format(self.objecttype.name)
             rows = db.execute(sql, o.source_id)

@@ -84,10 +84,10 @@ class Object(object):
                     date_to=value.split("|")[1]
                     value={"from": "{}".format(date_from),"to": "{}".format(date_to)}
             elif column.column_type == 'boolean':
-                if value is None:
+                if value==1:
+                    value = True
+                else: 
                     value = False
-                else:
-                    value = value
             elif column.column_type == 'integer.2':
                 if value is None or value == '':
                     value = None
