@@ -111,9 +111,9 @@ if args.mode=="easydb4":
                 eas_versions[split[0]]=[split[1]]
 
     print("eas-info: \n")
-    print(eas_instance)
-    print(eas_url)
-    print(eas_versions)
+    print("Instance: " + eas_instance)
+    print("URL: " + eas_url)
+    print("VERSIONS: " + str(eas_versions))
     print("\n sqlite-file: \n")
     print(sqlite_file)
     print("PG-DSN")
