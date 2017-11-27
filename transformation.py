@@ -16,9 +16,9 @@ from easydb.migration.transform.extract import AssetColumn
 ##VOR AUSFÜHRUNG SETZEN!
 
 schema= "public"                                #meistens 'public' Bei mehreren Schemata manuell für jeden Tabellen Eintrag festlegen
-instanz= "test-instanz"                                #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
-collection_table="arbeitsmappen"                         #Bezeichnung der Mappen-Tabelle in Source
-collection_objects_table= "arbeitsmappe__bilder"                  #Link-Tabelle für Objekte in Mappen
+instanz= "source"                                #Instanzname in Postgres z.B. lette-verein, easy5-annegret o.ä.
+collection_table="workfolder2"                         #Bezeichnung der Mappen-Tabelle in Source
+collection_objects_table= "workfolder2_bilder"                  #Link-Tabelle für Objekte in Mappen
 
 ###############################################################################
 
@@ -93,7 +93,7 @@ def final_touch(tables):
 #create destination.db
 job.prepare()
 # Wemm nur eine leere Destion erzeugt werden soll: nächste Zeile aktivieren
-#exit()
+exit()
 
 # transform
 tables=[]       #list of all tables, a transformation for each table must be appended in the dictionary stile below
@@ -109,7 +109,7 @@ tables.append(
             email,
             vorname as first_name,
             nachname as last_name
-            FROM "{0}.{1}.user"
+        FROM "{0}.{1}.user"
         UNION ALL
         SELECT
             id as __source_unique_id,
@@ -128,7 +128,7 @@ tables.append(
         'objects_table': None
     }
 )
-#'GROUPS'
+##GROUPS
 tables.append(
     {
        'sql':
@@ -147,6 +147,29 @@ tables.append(
         'objects_table': None
     }
 )
+
+##GROUP-USERS
+tables.append(
+    {
+        'sql':
+        """\
+        SELECT
+            id as __source_unique_id,
+            to_id as group_id,
+            from_id as user_id
+        FROM "{0}.{1}.eadb_links"
+        WHERE from_table_id=14 and to_table_id=12
+        """.format(instanz,schema),
+        'table_from': '{0}.{1}.eadb_links'.format(instanz, schema),      #table in source
+        'table_to': 'easydb.ez_user__group',                                 #table in destination
+        'has_parent': False,                                        #True if Object is part of a List with hierarchical ordering
+        'has_pool': False,                                          #True if records of this table are orgranized in pools
+        'has_asset': False,                                          #True if record has a file attached to it
+        'asset_columns': [AssetColumn(instanz, '{}.main'.format(schema), 'bild', 'main', 'bild', ['url'])],
+        'objects_table': None
+    }
+)
+
 ##POOLS
 tables.append(
     {
@@ -189,6 +212,27 @@ tables.append(
    }
 )
 
+##PRESENTATIONS
+tables.append(
+    {
+        'sql':
+        """\
+        SELECT
+            id + 1000000 as __source_unique_id,
+            coalesce(name,id) as "displayname:de-DE",
+            easydb_owner as __owner,
+            'presentation' as __type
+        FROM "{}.{}.presentation"
+        WHERE easydb_owner is not NULL
+        """.format(instanz,schema,collection_table),
+        'table_from':'{}.{}.{}'.format(instanz,schema,collection_table),
+        'table_to':'easydb.ez_collection',
+        'has_parent': False,
+        'has_pool': False,
+        'has_asset': False,
+        'objects_table': None
+   }
+)
 ################################################################################
 #-------------------->INSERT CUSTOM OBJECT-TYPES HERE<---------------------------
 ##INDIVDUAL TABLES: MUST BE CHANGED TO FIT ACTUAL VALUES
@@ -255,6 +299,26 @@ tables.append(
         'has_pool': False,
         'has_asset': False,
         'objects_table': 'easydb.main' #Table of Objects in workfolder in destination
+    }
+)
+##PRESENTATION OBJECTS
+tables.append(
+    {
+        'sql':
+        """\
+        SELECT
+            id as __source_unique_id,
+            to_id as object_id,
+            from_id + 1000000 as collection_id
+		FROM "{}.{}.eadb_links"
+        WHERE from_table_id=24 and to_table_id=1
+        """.format(instanz,schema,collection_objects_table),
+        'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),
+        'table_to':'easydb.ez_collection__objects',
+        'has_parent': False,
+        'has_pool': False,
+        'has_asset': False,
+        'objects_table': 'easydb.assets' #Table of Objects in workfolder in destination
     }
 )
 
