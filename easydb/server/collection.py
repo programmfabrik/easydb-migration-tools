@@ -23,26 +23,7 @@ class Collection(object):
         
 
     def to_json(self):
-        if self.user_collection_id is not None:
-            js = {
-                '_basetype': 'collection',
-                'collection': {
-                    '_id': self.id,
-                    '_version': self.version,
-                    'displayname': self.displayname,
-                    'description': self.description,
-                    '_id_parent': self.user_collection_id,
-                    'children_allowed': True,
-                    'type': self.type
-                    },
-                '_owner': {
-                    '_basetype': 'user',
-                    'user':{
-                    '_id': self.owner_id
-                    }
-                }
-                }
-        if self.user_collection_id is None:
+        if self.parent_id is not None:
             js = {
                 '_basetype': 'collection',
                 'collection': {
@@ -62,7 +43,25 @@ class Collection(object):
                         }
                     }
                 }
-
+        elif self.user_collection_id is not None:
+            js = {
+                '_basetype': 'collection',
+                'collection': {
+                    '_id': self.id,
+                    '_version': self.version,
+                    'displayname': self.displayname,
+                    'description': self.description,
+                    '_id_parent': self.user_collection_id,
+                    'children_allowed': True,
+                    'type': self.type
+                    },
+                '_owner': {
+                    '_basetype': 'user',
+                    'user':{
+                    '_id': self.owner_id
+                    }
+                }
+                }
         return js
 
     @staticmethod
