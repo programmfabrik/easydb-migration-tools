@@ -84,7 +84,7 @@ class Object(object):
                     date_to=value.split("|")[1]
                     value={"from": "{}".format(date_from),"to": "{}".format(date_to)}
             elif column.column_type == 'boolean':
-                if value==1:
+                if value in [1,"T","t","Y","y","1",True]:
                     value = True
                 else: 
                     value = False
