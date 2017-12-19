@@ -30,6 +30,15 @@ from easydb.tool.json import *
 from easydb.tool.batch import *
 
 # public
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
+
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
 
 def load(
     source,
@@ -73,7 +82,7 @@ def load(
             load_objects(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl, cnl)
 
     for objecttype in objecttypes:
-        if objecttype not in ('ez_pool','ez_group', 'ez_user', 'ez_tag', 'ez_collection', 'ez_collection_objects'):
+        if objecttype not in ('ez_pool','ez_group', 'ez_user', 'ez_tag', 'ez_collection', 'ez_collection__objects'):
             load_links(source, destination, ezapi, eas_url, eas_instance, batch_size, ez_schema, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl)
     if manage_source:
         source.close()
@@ -122,11 +131,18 @@ def load_collections(
     destination,
     ezapi,
     batch_size):
-
-    logger.info('LOAD COLLECTIONS')
-
+    
     db = destination.get_db()
     db.open()
+    test=db.execute('SELECT COUNT(*) FROM "easydb.ez_collection" WHERE __easydb_id is NULL').get_rows()
+
+    if test[0]['COUNT(*)']==0:
+        logger.info("All collections already uploaded")
+        db.close()
+        return
+
+    logger.info('LOAD COLLECTIONS')
+    
     users=db.execute('SELECT login, __easydb_id FROM "easydb.ez_user"').get_rows()
     db.close()
     logger.info('SET COLLECTION OWNERS IN DESTINATION')
@@ -214,9 +230,9 @@ def load_collection_objects(
     db.close()
 
     for table in tables_rows:
-        logger.info('Updating collection_objects GOID for type {}'.format(table['name']))
         if table['name'] == "easydb.ez_collection__objects":
             continue
+        logger.info('Updating collection_objects GOID')
         db.open()
         columns = db.execute('PRAGMA table_info("{}")'.format(table['name']))
         columns_rows=columns.get_rows()
@@ -226,27 +242,37 @@ def load_collection_objects(
             name = column['name']
             if name == "collection_id":
                 db.open()
+                rows = db.execute('SELECT COUNT(*) FROM "{}" WHERE collection_id is not NULL'.format(table['name']))
+                if rows.next()['COUNT(*)']==0:
+                    del(rows)
+                    db.close()
+                    break     
+                logger.info('Updating collection_objects GOID for type {}'.format(table['name']))     
                 rows = db.execute('SELECT __source_unique_id, __easydb_goid, collection_id FROM "{}"'.format(table['name']))
                 rows_rows=rows.get_rows()
                 del(rows)
-                db.close()
+                l=len(rows_rows)
+                i=0
                 for row in rows_rows:
-                    if row['collection_id'] is not None:
-                        db.open()
+                    printProgressBar(i,l)
+                    i+=1
+                    if row['collection_id'] is not None: 
                         db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = "{}" WHERE object_id = "{}"'.format(row['__easydb_goid'], row['__source_unique_id']))
-                        db.close()
+                db.close()
+                break
+
     logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
         loop = False
         db.open()
         sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__source_unique_id) where co."uploaded" is null'
-        rows = db.execute(sql).get_rows()
-        db.close()
+        rows = db.execute(sql)
         job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)
         for row in rows:
             loop = True
             job.add(Collection_Object.from_row(row))
+        db.close()
         job.finish()
 
     logger.debug("ADDING FONTEND_PROPS FOR PRESENTATIONS")
@@ -254,13 +280,10 @@ def load_collection_objects(
     presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "presentation"')
     presentations_rows=presentations.get_rows()
     del(presentations)
-    db.close()
     for presentation in presentations_rows:
-        db.open()
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
         slides_rows=slides.get_rows()
         del(slides)
-        db.close()
         name= presentation["displayname:de-DE"]
         slides_a=[]
         for slide in slides_rows:
@@ -275,14 +298,14 @@ def load_collection_objects(
         diction = {"collection": collection_d}
         call="collection/{}".format(presentation["__easydb_id"])
         response_object = ezapi.post(call, diction)
-
+    db.close()
 
 def load_collection_objects_batch(batch, ezapi, db):
     ezapi.create_collection_objects(batch)
-    for collection_object in batch:
-        db.open()
+    db.open()
+    for collection_object in batch: 
         db.execute(sql_update_collection_object_easydb_id, collection_object.uploaded, collection_object.source_id)
-        db.close()
+    db.close()
 # - Groups#
 
 def load_groups(
