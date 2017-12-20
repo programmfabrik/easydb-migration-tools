@@ -172,18 +172,16 @@ def load_collections(
     db.open()
     sql='SELECT COUNT(__source_unique_id) as C, "displayname:de-DE", GROUP_CONCAT("__source_unique_id") FROM "easydb.ez_collection" GROUP BY "displayname:de-DE", __parent_id, __owner'
     rows = db.execute(sql).get_rows()
-    db.close()
     logger.info('RENAME COLLECTIONS WITH IDENTICAL NAMES')
     for row in rows:
         if row[0]!=1:
             s_ids = row[2].split(",")
             for i in range(0,len(s_ids)):
                 new_name=row[1]+"-"+str(i+1)
-                db.open()
                 sql="""UPDATE "easydb.ez_collection" SET "displayname:de-DE" = '{}' WHERE "__source_unique_id"={}""".format(new_name, s_ids[i])
                 logger.debug(sql)
                 db.execute(sql)
-                db.close()
+    db.close()
     logger.info('UPLOAD COLLECTIONS')
     loop = True
     while(loop):
@@ -266,7 +264,7 @@ def load_collection_objects(
     while(loop):
         loop = False
         db.open()
-        sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__source_unique_id) where co."uploaded" is null'
+        sql = 'SELECT * FROM "easydb.ez_collection__objects" co JOIN  "easydb.ez_collection" c on (co.collection_id = c.__easydb_id) where co."uploaded" is null'
         rows = db.execute(sql)
         job = BatchedJob(BatchMode.List, batch_size, load_collection_objects_batch, ezapi, db)
         for row in rows:
