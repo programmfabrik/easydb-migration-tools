@@ -30,7 +30,7 @@ from easydb.tool.json import *
 from easydb.tool.batch import *
 
 # public
-def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█'):
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 10, fill = '█'):
 
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
@@ -221,44 +221,43 @@ def load_collection_objects(
     batch_size):
     db = destination.get_db()
     db.open()
-
+    rows = db.execute('SELECT COUNT(*) FROM "easydb.ez_collection__objects" WHERE object_goid is NULL')
+    if rows.next()['COUNT(*)']==0:
+        del(rows)
+        db.close()
+        logger.info('Collection_objects GOID have already been updated')
+        return     
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables_rows=tables.get_rows()
     del(tables)
-    db.close()
-
+    logger.info('Updating collection_objects GOID')
     for table in tables_rows:
         if table['name'] == "easydb.ez_collection__objects":
             continue
-        logger.info('Updating collection_objects GOID')
-        db.open()
         columns = db.execute('PRAGMA table_info("{}")'.format(table['name']))
         columns_rows=columns.get_rows()
         del(columns)
-        db.close()
         for column in columns_rows:
             name = column['name']
             if name == "collection_id":
-                db.open()
                 rows = db.execute('SELECT COUNT(*) FROM "{}" WHERE collection_id is not NULL'.format(table['name']))
                 if rows.next()['COUNT(*)']==0:
                     del(rows)
-                    db.close()
                     break     
-                logger.info('Updating collection_objects GOID for type {}'.format(table['name']))     
-                rows = db.execute('SELECT __source_unique_id, __easydb_goid, collection_id FROM "{}"'.format(table['name']))
-                rows_rows=rows.get_rows()
-                del(rows)
+                rows=db.execute('SELECT COUNT(*), o.__easydb_goid as __easydb_goid, o.__source_unique_id as __source_unique_id, o.collection_id as collection_id FROM "easydb.ez_collection__objects" co JOIN "{}" o on co.object_id == o.__source_unique_id WHERE co.object_goid is NULL'.format(table['name'])).get_rows()
+                if rows[0]['COUNT(*)']==0:
+                    del(rows)
+                    break
+                logger.info('Updating collection_objects GOID for type {}'.format(table['name']))   
                 l=len(rows_rows)
                 i=0
-                for row in rows_rows:
-                    printProgressBar(i,l)
+                for row in rows:
+                    print("\r{}/{}".format(i,l),end='\r')
                     i+=1
                     if row['collection_id'] is not None: 
                         db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = "{}" WHERE object_id = "{}"'.format(row['__easydb_goid'], row['__source_unique_id']))
-                db.close()
                 break
-
+    db.close()
     logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
@@ -270,9 +269,10 @@ def load_collection_objects(
         for row in rows:
             loop = True
             job.add(Collection_Object.from_row(row))
-        db.close()
         job.finish()
-
+        db.close()
+    
+        
     logger.debug("ADDING FONTEND_PROPS FOR PRESENTATIONS")
     db.open()
     presentations = db.execute('SELECT * FROM "easydb.ez_collection" WHERE __type = "presentation"')
@@ -300,10 +300,8 @@ def load_collection_objects(
 
 def load_collection_objects_batch(batch, ezapi, db):
     ezapi.create_collection_objects(batch)
-    db.open()
     for collection_object in batch: 
         db.execute(sql_update_collection_object_easydb_id, collection_object.uploaded, collection_object.source_id)
-    db.close()
 # - Groups#
 
 def load_groups(
