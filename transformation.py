@@ -112,7 +112,7 @@ tables.append(
         FROM "{0}.{1}.user"
         UNION ALL
         SELECT
-            id as __source_unique_id,
+            id + (SELECT MAX(id) FROM "{0}.{1}.user") as __source_unique_id,
             user_id,
             NULL,
             NULL,
@@ -202,6 +202,7 @@ tables.append(
             beschreibung as "description:de-DE",
             easydb_owner as __owner
         FROM "{}.{}.{}"
+        WHERE easydb_owner is not NULL
         """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_table),
         'table_to':'easydb.ez_collection',
@@ -218,14 +219,14 @@ tables.append(
         'sql':
         """\
         SELECT
-            id + 1000000 as __source_unique_id,
+            id + (SELECT MAX(id) FROM "{0}.{1}.{2}") as __source_unique_id,
             coalesce(name,id) as "displayname:de-DE",
             easydb_owner as __owner,
             'presentation' as __type
-        FROM "{}.{}.presentation"
+        FROM "{0}.{1}.presentation"
         WHERE easydb_owner is not NULL
         """.format(instanz,schema,collection_table),
-        'table_from':'{}.{}.{}'.format(instanz,schema,collection_table),
+        'table_from':'{}.{}.presentation'.format(instanz,schema),
         'table_to':'easydb.ez_collection',
         'has_parent': False,
         'has_pool': False,
@@ -302,6 +303,7 @@ tables.append(
     }
 )
 ##PRESENTATION OBJECTS
+#USUALLY STORED IN EADB-LINKS, BUT MIGHT BE STORED IN SPERATE TABLE
 tables.append(
     {
         'sql':
@@ -309,8 +311,9 @@ tables.append(
         SELECT
             id as __source_unique_id,
             to_id as object_id,
-            from_id + 1000000 as collection_id
-		FROM "{}.{}.eadb_links"
+            from_id + (SELECT MAX(lk_arbeitsmappe_id) FROM "{0}.{1}.{2}") as collection_id,
+            position
+		FROM "{0}.{1}.eadb_links"
         WHERE from_table_id=24 and to_table_id=1
         """.format(instanz,schema,collection_objects_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),

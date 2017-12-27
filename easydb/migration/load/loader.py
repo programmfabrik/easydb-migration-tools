@@ -279,16 +279,17 @@ def load_collection_objects(
     presentations_rows=presentations.get_rows()
     del(presentations)
     for presentation in presentations_rows:
+        #TODO FIND OUT HOW easydb4 stores slide order and change json generation
         slides = db.execute('SELECT object_goid, position FROM "easydb.ez_collection__objects" WHERE collection_id={} ORDER BY position ASC'.format(presentation["__easydb_id"]))
         slides_rows=slides.get_rows()
         del(slides)
-        name= presentation["displayname:de-DE"]
-        slides_a=[]
+        name = presentation["displayname:de-DE"]
+        slides_a = []
         for slide in slides_rows:
             goid = slide["object_goid"]
             slide_d = {}
-            slide_d["type"]="one"
-            slide_d["center"]={"_global_object_id": goid}
+            slide_d["type"] = "one"
+            slide_d["center"] = {"_global_object_id": goid}
             slides_a.append(slide_d)
         presentation_d={"slide_idx": 1, "slides": slides_a, "settings": {"show_info": "no-info"}}
         frontend_props = {"presentation": presentation_d}
