@@ -310,7 +310,7 @@ tables.append(
         SELECT
             id as __source_unique_id,
             to_id as object_id,
-            from_id + (SELECT MAX(lk_arbeitsmappe_id) FROM "{0}.{1}.{2}") as collection_id,
+            from_id + (SELECT MAX(id) FROM "{0}.{1}.{2}") as collection_id,
             position
 		FROM "{0}.{1}.eadb_links"
         WHERE from_table_id=24 and to_table_id=1
