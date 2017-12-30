@@ -201,7 +201,7 @@ tables.append(
             name as "displayname:de-DE",
             easydb_owner as __owner
         FROM "{}.{}.{}"
-        WHERE easydb_owner is not NULL
+        JOIN "{0}.{1}.user" u ON c.easydb_owner = 'user_' || u.login
         """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_table),
         'table_to':'easydb.ez_collection',
@@ -223,7 +223,7 @@ tables.append(
             easydb_owner as __owner,
             'presentation' as __type
         FROM "{0}.{1}.presentation"
-        WHERE easydb_owner is not NULL
+        JOIN "{0}.{1}.user" u ON p.easydb_owner = 'user_' || u.login
         """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.presentation'.format(instanz,schema),
         'table_to':'easydb.ez_collection',
