@@ -199,7 +199,6 @@ tables.append(
             "collection" as __type,
             fk_father_id as __parent_id,
             name as "displayname:de-DE",
-            beschreibung as "description:de-DE",
             easydb_owner as __owner
         FROM "{}.{}.{}"
         WHERE easydb_owner is not NULL
@@ -315,7 +314,7 @@ tables.append(
             position
 		FROM "{0}.{1}.eadb_links"
         WHERE from_table_id=24 and to_table_id=1
-        """.format(instanz,schema,collection_objects_table),
+        """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),
         'table_to':'easydb.ez_collection__objects',
         'has_parent': False,
