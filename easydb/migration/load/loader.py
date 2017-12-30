@@ -16,6 +16,7 @@ import re
 import requests
 import os
 import hashlib
+import time
 
 from easydb.repository.base import *
 from easydb.server.datamodel import *
@@ -226,7 +227,8 @@ def load_collection_objects(
         del(rows)
         db.close()
         logger.info('Collection_objects GOID have already been updated')
-        return     
+        return 
+    del(rows)    
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables_rows=tables.get_rows()
     del(tables)
@@ -244,20 +246,23 @@ def load_collection_objects(
                 if rows.next()['COUNT(*)']==0:
                     del(rows)
                     break     
-                rows=db.execute('SELECT COUNT(*), o.__easydb_goid as __easydb_goid, o.__source_unique_id as __source_unique_id, o.collection_id as collection_id FROM "easydb.ez_collection__objects" co JOIN "{}" o on co.object_id == o.__source_unique_id WHERE co.object_goid is NULL'.format(table['name'])).get_rows()
+                rows=db.execute('SELECT COUNT(*) FROM "easydb.ez_collection__objects" co JOIN "{}" o on co.object_id == o.__easydb_id WHERE co.object_goid is NULL'.format(table['name'])).get_rows()
                 if rows[0]['COUNT(*)']==0:
                     del(rows)
                     break
+                rows=db.execute('SELECT o.__easydb_goid as __easydb_goid, o.__source_unique_id as __source_unique_id, o.collection_id as collection_id FROM "easydb.ez_collection__objects" co JOIN "{}" o on co.object_id == o.__easydb_id WHERE co.object_goid is NULL'.format(table['name'])).get_rows()
                 logger.info('Updating collection_objects GOID for type {}'.format(table['name']))   
-                l=len(rows_rows)
+                l=len(rows)
                 i=0
                 for row in rows:
                     print("\r{}/{}".format(i,l),end='\r')
                     i+=1
                     if row['collection_id'] is not None: 
                         db.execute('UPDATE "easydb.ez_collection__objects" SET object_goid = "{}" WHERE object_id = "{}"'.format(row['__easydb_goid'], row['__source_unique_id']))
+                del(rows)
                 break
     db.close()
+
     logger.info('LOAD COLLECTION OBJECTS')
     loop = True
     while(loop):
@@ -269,6 +274,7 @@ def load_collection_objects(
         for row in rows:
             loop = True
             job.add(Collection_Object.from_row(row))
+        del(rows)
         job.finish()
         db.close()
     
@@ -286,16 +292,16 @@ def load_collection_objects(
         slides_a = []
         double=False
         slide_d = {}
-        for i in range(0,len(slides_rows):
+        for i in range(0,len(slides_rows)):
             slide=slides_rows[i]
             next_slide=slides_rows[i]
-            if next_slide["position"]==i+1:
+            if next_slide["position"] == i+1:
                 double = True
             goid = slide["object_goid"]
-            if double and (i%2=0 or i=0):
+            if double and (i % 2 == 0 or i == 0):
                 slide_d["type"] = "duo"    
                 slide_d["left"] = {"_global_object_id": goid}
-            if double and (i%2!=0):
+            if double and (i%2 != 0):
                 slide_d["type"] = "duo"    
                 slide_d["right"] = {"_global_object_id": goid}
                 double=False
@@ -306,6 +312,7 @@ def load_collection_objects(
                 slide_d["center"] = {"_global_object_id": goid}
                 slides_a.append(dict(slide_d))
                 slide_d = {}
+        
         presentation_d={"slide_idx": 1, "slides": slides_a, "settings": {"show_info": "no-info"}}
         frontend_props = {"presentation": presentation_d}
         collection_d = {"_version": 2, "webfrontend_props": frontend_props}
@@ -544,38 +551,50 @@ def load_links(
     ]}]}
     res=ezapi.post("search?pretty=0",search_js)
     number_of_objects=res["count"]
-
     offset=0
     while(offset<number_of_objects):
         logger.info('[{0}] Fetching Objects'.format(objecttype.name))
-        objects_in=ezapi.get("db/{0}/_all_fields/list?limit=1000&offset={1}&format=long".format(objecttype.name,offset))
-        offset+=1000
+        objects_in=ezapi.get("db/{0}/_all_fields/list?limit={1}&offset={2}&format=long".format(objecttype.name,batch_size,offset))
+        
+        logger.debug("{} new objects in".format(len(objects_in)))
         objects_out=[]
-        for i in range(0,len(objects_in)):
-            db.open()
+        ids=[]
+        for o in objects_in:
+            ids.append(o[objecttype.name]["_id"])
+        logger.info("Checking for Objects that have not been updated in database")
+        ids=tuple(ids)
+        db.open()
+        rows=db.execute('SELECT COUNT(*) FROM "easydb.{}" WHERE __updated is NULL and __easydb_id in {}'.format(objecttype.name,ids))
+        if rows.next()["COUNT(*)"]==0:
+            logger.info("All objects in this batch are already updated")
+            del(rows)
+            offset+=1000
+            continue
+        del(rows)
+        total=len(objects_in)
+        for i in range(0,total):
+            printProgressBar(i,len(objects_in))
             rows=db.execute('SELECT * FROM "easydb.{}" WHERE __easydb_goid= "{}"'.format(objecttype.name,objects_in[i]["_global_object_id"]))
-            rows=rows.get_rows()
-            db.close()
-            if len(rows)>1:
+            if rows.rowcount>1:
                 raise Exception('Duplicate IDs in Database')
-            row=rows[0]
+            row=rows.next()
             if row["__updated"]:
                 continue
             obj_o=loader.load_linked(objects_in[i],row)
-            logger.info("Object_Out: {}".format(json.dumps(obj_o,indent=4)))
+            logger.debug("Object_Out: {}".format(json.dumps(obj_o,indent=4)))
             objects_out.append(obj_o)
-            if len(objects_out)>=batch_size or len(objects_out)==len(objects_in) or i==len(objects_in):
-                logger.info('[{0}] updating batch of {1}'.format(objecttype.name,batch_size))
-                response=ezapi.post("db/{}".format(objecttype.name), objects_out)
-                if len(response) != len(objects_out):
-                    raise Exception('response objects are different from pushed objects')
-                db.open()
-                for obj in response:
-                    db.open()
-                    query='UPDATE "easydb.{}" SET __updated = "TRUE" WHERE __easydb_goid="{}"'.format(objecttype.name, obj["_global_object_id"])
-                    db.execute(query)
-                    db.close()
-                objects_out=[]
+            del(rows)
+        
+        logger.info('[{0}] updating batch of {1}'.format(objecttype.name,len(objects_out)))
+        response=ezapi.post("db/{}".format(objecttype.name), objects_out)
+
+        if len(response) != len(objects_out):
+            raise Exception('response objects are different from pushed objects')
+        for obj in response:
+            query='UPDATE "easydb.{}" SET __updated = "TRUE" WHERE __easydb_goid="{}"'.format(objecttype.name, obj["_global_object_id"])
+            db.execute(query)
+        db.close()
+        offset+=1000
     logger.info('[update-objects] end')
 
 class Loader(object):
@@ -756,7 +775,6 @@ class Loader(object):
                         linked_row=db.execute(sql).get_rows()
                         db.close()
                         linked_object["_objecttype"]=const.ref_table_name[7:]
-                        #linked_object[column]["_mask"]=const.ref_table_name[7:]+"__all_fields"
                         linked_object["_mask"]="_all_fields"
                         linked_object[const.ref_table_name[7:]]={}
                         linked_object[const.ref_table_name[7:]]["_id"]=int(linked_row[0]["__easydb_id"])
