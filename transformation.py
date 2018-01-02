@@ -108,17 +108,9 @@ tables.append(
             login,
             email,
             vorname as first_name,
-            nachname as last_name
+            nachname as last_name,
+            password as hashed_password
         FROM "{0}.{1}.user"
-        UNION ALL
-        SELECT
-            id + (SELECT MAX(id) FROM "{0}.{1}.user") as __source_unique_id,
-            user_id,
-            NULL,
-            NULL,
-            displayname as last_name
-        FROM "{0}.{1}.eadb_user_cache"
-        WHERE NOT EXISTS (SELECT * FROM "{0}.{1}.user" where login = user_id)
         """.format(instanz,schema),
         'table_from': '{}.{}.user'.format(instanz,schema),
         'table_to': 'easydb.ez_user',
