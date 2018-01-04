@@ -553,9 +553,8 @@ def load_links(
     number_of_objects=res["count"]
     offset=0
     while(offset<number_of_objects):
-        logger.info('[{0}] Fetching Objects'.format(objecttype.name))
+        logger.info('[{0}] Fetching Objects ({1}/{2} done)'.format(objecttype.name, offset, number_of_objects))
         objects_in=ezapi.get("db/{0}/_all_fields/list?limit={1}&offset={2}&format=long".format(objecttype.name,batch_size,offset))
-        
         logger.debug("{} new objects in".format(len(objects_in)))
         objects_out=[]
         ids=[]
@@ -568,7 +567,7 @@ def load_links(
         if rows.next()["COUNT(*)"]==0:
             logger.info("All objects in this batch are already updated")
             del(rows)
-            offset+=1000
+            offset+=batch_size
             continue
         del(rows)
         total=len(objects_in)
@@ -594,7 +593,8 @@ def load_links(
             query='UPDATE "easydb.{}" SET __updated = "TRUE" WHERE __easydb_goid="{}"'.format(objecttype.name, obj["_global_object_id"])
             db.execute(query)
         db.close()
-        offset+=1000
+        offset+=batch_size
+    
     logger.info('[update-objects] end')
 
 class Loader(object):
