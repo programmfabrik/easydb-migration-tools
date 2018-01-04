@@ -108,17 +108,9 @@ tables.append(
             login,
             email,
             vorname as first_name,
-            nachname as last_name
+            nachname as last_name,
+            password as hashed_password
         FROM "{0}.{1}.user"
-        UNION ALL
-        SELECT
-            id + (SELECT MAX(id) FROM "{0}.{1}.user") as __source_unique_id,
-            user_id,
-            NULL,
-            NULL,
-            displayname as last_name
-        FROM "{0}.{1}.eadb_user_cache"
-        WHERE NOT EXISTS (SELECT * FROM "{0}.{1}.user" where login = user_id)
         """.format(instanz,schema),
         'table_from': '{}.{}.user'.format(instanz,schema),
         'table_to': 'easydb.ez_user',
@@ -199,10 +191,9 @@ tables.append(
             "collection" as __type,
             fk_father_id as __parent_id,
             name as "displayname:de-DE",
-            beschreibung as "description:de-DE",
             easydb_owner as __owner
         FROM "{}.{}.{}"
-        WHERE easydb_owner is not NULL
+        JOIN "{0}.{1}.user" u ON c.easydb_owner = 'user_' || u.login
         """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_table),
         'table_to':'easydb.ez_collection',
@@ -224,7 +215,7 @@ tables.append(
             easydb_owner as __owner,
             'presentation' as __type
         FROM "{0}.{1}.presentation"
-        WHERE easydb_owner is not NULL
+        JOIN "{0}.{1}.user" u ON p.easydb_owner = 'user_' || u.login
         """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.presentation'.format(instanz,schema),
         'table_to':'easydb.ez_collection',
@@ -311,11 +302,11 @@ tables.append(
         SELECT
             id as __source_unique_id,
             to_id as object_id,
-            from_id + (SELECT MAX(lk_arbeitsmappe_id) FROM "{0}.{1}.{2}") as collection_id,
+            from_id + (SELECT MAX(id) FROM "{0}.{1}.{2}") as collection_id,
             position
 		FROM "{0}.{1}.eadb_links"
         WHERE from_table_id=24 and to_table_id=1
-        """.format(instanz,schema,collection_objects_table),
+        """.format(instanz,schema,collection_table),
         'table_from':'{}.{}.{}'.format(instanz,schema,collection_objects_table),
         'table_to':'easydb.ez_collection__objects',
         'has_parent': False,

@@ -27,6 +27,7 @@ class User(object):
         self.login_disabled = False
         self.groups = []
         self.source_id = None
+        self.hashed_password = None
 
     def to_json(self):
         js = {
@@ -43,8 +44,11 @@ class User(object):
                 'town': self.town,
                 'country': self.country,
                 'frontend_prefs': self.frontend_prefs,
-                'login_disabled': self.login_disabled
+                'login_disabled': self.login_disabled,
+                'require_password_change': True
             },
+            '_password_insecure_hash_method': 'md5',
+            '_password_insecure_hash': self.hashed_password,
             '_groups': list(map(lambda gid: { 'group': {'_id': int(gid)} }, self.groups))
         }
         if self.email is not None:
@@ -90,6 +94,8 @@ class User(object):
                 user.country = value
             elif key == 'password':
                 user.password = value
+            elif key == 'hashed_password':
+                user.hashed_password = value
             elif key == 'frontend_prefs':
                 if value is not None:
                     user.frontend_prefs = json.loads(value)
