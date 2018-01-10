@@ -44,11 +44,8 @@ class User(object):
                 'town': self.town,
                 'country': self.country,
                 'frontend_prefs': self.frontend_prefs,
-                'login_disabled': self.login_disabled,
-                'require_password_change': True
+                'login_disabled': self.login_disabled
             },
-            '_password_insecure_hash_method': 'md5',
-            '_password_insecure_hash': self.hashed_password,
             '_groups': list(map(lambda gid: { 'group': {'_id': int(gid)} }, self.groups))
         }
         if self.email is not None:
@@ -66,6 +63,10 @@ class User(object):
             ]
         if self.password is not None:
             js['_password'] = self.password
+        if self.hashed_password is not None:
+            js['user']['require_password_change'] = True
+            js['_password_insecure_hash_method'] = 'md5'
+            js['_password_insecure_hash'] = self.hashed_password
         return js
 
     @staticmethod
