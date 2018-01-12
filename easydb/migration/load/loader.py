@@ -312,7 +312,7 @@ def load_collection_objects(
                 slide_d["center"] = {"_global_object_id": goid}
                 slides_a.append(dict(slide_d))
                 slide_d = {}
-        
+        #TODO: Load the Collection first, then update Frontend Probs to prevent wrong version Error
         presentation_d={"slide_idx": 1, "slides": slides_a, "settings": {"show_info": "no-info"}}
         frontend_props = {"presentation": presentation_d}
         collection_d = {"_version": 2, "webfrontend_props": frontend_props}
@@ -551,6 +551,24 @@ def load_links(
     ]}]}
     res=ezapi.post("search?pretty=0",search_js)
     number_of_objects=res["count"]
+    db.open()
+    number_of_rows=db.execute('SELECT COUNT(*) FROM "easydb.{}" WHERE __easydb_id is not NULL'.format(objecttype.name)).next()['COUNT(*)']
+    db.close()
+    if number_of_objects<number_of_rows:
+        i=1
+        while(True):
+            logger.info("Waiting 10 minutes for ES-Indexing to finish ({}/{} indexed)".format(number_of_objects, number_of_rows))
+            time.sleep(600)
+            res=ezapi.post("search?pretty=0",search_js)
+            number_of_objects=res["count"]
+            if number_of_objects>=number_of_rows:
+                break
+            elif number_of_objects<number_of_rows:
+                i+=1
+            if i>6:
+                raise Exception('Missing Objects in Easydb. Check your data manually.')
+            
+    logger.info("{} Objects found in easydb".format(number_of_objects))
     offset=0
     while(offset<number_of_objects):
         logger.info('[{0}] Fetching Objects ({1}/{2} done)'.format(objecttype.name, offset, number_of_objects))
@@ -589,6 +607,7 @@ def load_links(
 
         if len(response) != len(objects_out):
             raise Exception('response objects are different from pushed objects')
+        logger.info("Update {} Objects in destination".format(len(response)))
         for obj in response:
             query='UPDATE "easydb.{}" SET __updated = "TRUE" WHERE __easydb_goid="{}"'.format(objecttype.name, obj["_global_object_id"])
             db.execute(query)
