@@ -23,7 +23,7 @@ logger = logging.getLogger('easydb.migration.transform.job')
 
 class TransformJob(object):
 
-    def __init__(self, easydb_url, login, password, source_dir, destination_dir, create_policy, exit_on_error=True, *args, **kwargs):
+    def __init__(self, easydb_url, login, password, source_dir, destination_dir, create_policy, exit_on_error=True, init, *args, **kwargs):
         self.exit_on_error = exit_on_error
         self.easydb_api = easydb.server.api.EasydbAPI(easydb_url)
         self.easydb_api.authenticate(login, password)
@@ -32,6 +32,7 @@ class TransformJob(object):
         self.destination_dir = destination_dir
         self.create_policy = create_policy
         self.source = None
+        self.init = init
 
     def __del__(self):
         if self.source is not None and self.source.is_open():
@@ -40,6 +41,8 @@ class TransformJob(object):
     def prepare(self, *args, **kwargs):
         start = time.time()
         self.destination, self.source = easydb.migration.transform.prepare.prepare(self.easydb_api, self.destination_dir, self.source_dir, self.create_policy, *args, **kwargs)
+        if self.init:
+            exit()
         self.source.open()
         end = time.time()
         self.log_time('prepare', start, end)
@@ -79,7 +82,7 @@ class TransformJob(object):
     def create_job(job_name, create_policy):
         argparser = TransformJob.get_argparser(job_name)
         a = argparser.parse_args()
-        return TransformJob(a.url, a.login, a.password, a.source, a.destination, create_policy)
+        return TransformJob(a.url, a.login, a.password, a.source, a.destination, create_policy, a.init)
 
     @staticmethod
     def get_argparser(job_name):
@@ -89,5 +92,6 @@ class TransformJob(object):
         argparser.add_argument('destination',  help='destination directory')
         argparser.add_argument('--login',      help='easydb login', default='root')
         argparser.add_argument('--password',   help='easydb password', default='admin')
+        argparser.add_argument('--init', action='store_true',   help='Only prepare empty destination-db')
         return argparser
 
