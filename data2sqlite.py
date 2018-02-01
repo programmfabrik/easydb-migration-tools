@@ -10,7 +10,7 @@ import logging
 import logging.config
 import requests
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 
 argparser = argparse.ArgumentParser(description='data2qlite')
 
@@ -105,8 +105,8 @@ if args.mode=="easydb4":
         for version in args.eas_versions:
             split = version.split(":")
             if split[0] in eas_versions:
-                if split[1] not in eas_verions[split[0]]:
-                    eas_verions[split[0]].append(split[1])
+                if split[1] not in eas_versions[split[0]]:
+                    eas_versions[split[0]].append(split[1])
             else:
                 eas_versions[split[0]]=[split[1]]
 
