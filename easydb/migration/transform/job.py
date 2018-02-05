@@ -23,7 +23,7 @@ logger = logging.getLogger('easydb.migration.transform.job')
 
 class TransformJob(object):
 
-    def __init__(self, easydb_url, login, password, source_dir, destination_dir, create_policy, exit_on_error=True, init, *args, **kwargs):
+    def __init__(self, easydb_url, login, password, source_dir, destination_dir, create_policy, init, exit_on_error=True, *args, **kwargs):
         self.exit_on_error = exit_on_error
         self.easydb_api = easydb.server.api.EasydbAPI(easydb_url)
         self.easydb_api.authenticate(login, password)
@@ -82,7 +82,7 @@ class TransformJob(object):
     def create_job(job_name, create_policy):
         argparser = TransformJob.get_argparser(job_name)
         a = argparser.parse_args()
-        return TransformJob(a.url, a.login, a.password, a.source, a.destination, create_policy, a.init)
+        return TransformJob(a.url, a.login, a.password, a.source, a.destination, a.init, create_policy)
 
     @staticmethod
     def get_argparser(job_name):
