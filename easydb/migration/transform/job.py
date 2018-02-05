@@ -42,7 +42,6 @@ class TransformJob(object):
         start = time.time()
         self.destination, self.source = easydb.migration.transform.prepare.prepare(self.easydb_api, self.destination_dir, self.source_dir, self.create_policy, *args, **kwargs)
         if self.init:
-            print("WARUM IST INIT JETZT {}".format(self.init))
             exit()
         self.source.open()
         end = time.time()
@@ -83,7 +82,6 @@ class TransformJob(object):
     def create_job(job_name, create_policy):
         argparser = TransformJob.get_argparser(job_name)
         a = argparser.parse_args()
-        print(a.init)
         return TransformJob(a.url, a.login, a.password, a.source, a.destination, create_policy, a.init)
 
     @staticmethod
