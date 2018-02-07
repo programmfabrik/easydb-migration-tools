@@ -613,7 +613,10 @@ def __store_eas_id (
         print """Warning: EAS-ID %s not found or error from EAS-Server. Status: "%s".""" % (eas_id, _res.status_code), _res.text
         return False
 
-    if isinstance(_res.json, dict):
+    if not hasattr(_res, "json"):
+        # very old python request, no json attribute
+        res = json.loads(_res.content)
+    elif isinstance(_res.json, dict):
         # old python.requests module: json is an object
         res = _res.json
     else:
