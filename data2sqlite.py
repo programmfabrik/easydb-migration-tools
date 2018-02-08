@@ -88,19 +88,20 @@ if args.mode=="easydb4":
     if sqlite_file is None:
         logging.warning('No sqlite_file provided. Program will terminate now')
         sys.exit(0)
+
     if args.eas_url is not None:
         eas_url = args.eas_url
-    if eas_url is None:
-        logging.warning('No eas-server provided. Program will terminate now')
-        sys.exit(0)
 
-    if args.eas_instance is not None:
+        if args.eas_instance is None:
+            logging.warning('No eas_instance provided. Program will terminate now')
+            sys.exit(0)
+
         eas_instance =  args.eas_instance
-    if eas_url is None:
-        logging.warning('No eas-instance provided. Program will terminate now')
-        sys.exit(0)
 
-    if args.eas_versions is not None:
+        if args.eas_versions is None:
+            logging.warning('No eas_versions provided. Program will terminate now')
+            sys.exit(0)
+
         eas_versions={}
         for version in args.eas_versions:
             split = version.split(":")
@@ -110,10 +111,11 @@ if args.mode=="easydb4":
             else:
                 eas_versions[split[0]]=[split[1]]
 
-    print("eas-info: \n")
-    print("Instance: " + eas_instance)
-    print("URL: " + eas_url)
-    print("VERSIONS: " + str(eas_versions))
+        print("eas-info: \n")
+        print("URL: " + eas_url)
+        print("Instance: " + eas_instance)
+        print("VERSIONS: " + str(eas_versions))
+
     print("\n sqlite-file: \n")
     print(sqlite_file)
     print("PG-DSN")
