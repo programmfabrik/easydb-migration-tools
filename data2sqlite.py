@@ -18,6 +18,7 @@ argparser.add_argument('-t', '--target', default='dump.db',                     
 argparser.add_argument('--init', action='store_true',                           help='If set, existing files will be purged')
 argparser.add_argument('--name', default='source',                              help='NAME in target db (required, default: "source")')
 argparser.add_argument('--dump_mysql',                                          help='If set, output in mysql sql format, use "-" to dump to STDOUT')
+argparser.add_argument('-s', '--silent', action='store_true',                   help="If set, don't output progress every 100 rows.")
 
 subparsers=argparser.add_subparsers(help="Set Datasources", dest='mode')
 
@@ -34,17 +35,19 @@ pg_parser.add_argument('--dsn',                                                 
 pg_parser.add_argument('--schema', default='public',                            help='Schema for pg-database, default = "public"')
 pg_parser.add_argument('--tables', nargs='*', default=[],                       help='Select Tables for Export from postgresql')
 
-pg_parser=subparsers.add_parser('mysql', help="Add to Source from mySQL")
-pg_parser.add_argument('--host',                                                help='mySQL host')
-pg_parser.add_argument('--dbname',                                              help='DB in mySQL host')
-pg_parser.add_argument('--username',                                            help='Username for mySQL-DB')
-pg_parser.add_argument('--password', default='',                                help='PW for mySQL-User')
-pg_parser.add_argument('--tables', nargs='*', default=[],                       help='Select Tables for Export from postgresql')
+mysql_parser=subparsers.add_parser('mysql', help="Add to Source from mySQL")
+mysql_parser.add_argument('--host',                                                help='mySQL host')
+mysql_parser.add_argument('--dbname',                                              help='DB in mySQL host')
+mysql_parser.add_argument('--username',                                            help='Username for mySQL-DB')
+mysql_parser.add_argument('--password', default='',                                help='PW for mySQL-User')
+mysql_parser.add_argument('--tables', nargs='*', default=[],                       help='Select Tables for Export from postgresql')
 
 import_parser=subparsers.add_parser('file', help="Add to Source from other files")
 import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
 import_parser.add_argument('--XML', nargs='*', default=[],                      help='Filename for XML')
 import_parser.add_argument('--CSV', nargs='*', default=[],                      help='Filename for CSV')
+
+global args
 
 args = argparser.parse_args()
 
@@ -52,6 +55,7 @@ extract.__pg_init()
 extract.__sqlite_init()
 extract.prepare_source(args.target, init=args.init)
 
+extract.args = args
 
 ##MIGRATION#####################################################################
 if args.mode=="easydb4":
@@ -120,6 +124,8 @@ if args.mode=="easydb4":
     print(sqlite_file)
     print("PG-DSN")
     print(pg_dsn)
+    sys.stdout.flush()
+
     eadb_link_index = """
     CREATE INDEX "%TABLE_NAME_IN_SOURCE%_idx"
     ON "%TABLE_NAME_IN_SOURCE%" (from_table_id, to_table_id, from_id, to_id);

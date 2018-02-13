@@ -411,13 +411,14 @@ SELECT origin_id, source_table_name FROM origin WHERE
         print """Notice: %s[onCreate]: %s""" % (table_def["table_name_in_source"], cmd)
         __execute(sql, cmd)
 
+
 def __copy_data_to_source (
     conn,
     schema,
     limit = None
     ):
 
-    global source_conn
+    global source_conn, args
 
     if "database" in schema:
         print """\nCopying data for "%s" """ % schema["database"]
@@ -470,7 +471,10 @@ def __copy_data_to_source (
             insert = """INSERT INTO "%s" (__source_unique_id, %s) VALUES (?, %s)""" % (tb["table_name_in_source"], columns, ",".join(qms))
 
         prefix = "Notice: "+tb["table_name_in_source"]
-        print prefix,
+        if not args.silent:
+            print prefix,
+
+        sys.stdout.flush()
 
         count = 0
         offset = 0
@@ -522,7 +526,7 @@ def __copy_data_to_source (
 
                 __execute(sql, insert, save_row)
 
-                if count%100==0:
+                if count%100==0 and not args.silent:
                     print "\r"+prefix, count, "rows...",
                     sys.stdout.flush()
 
@@ -531,6 +535,8 @@ def __copy_data_to_source (
             offset += chunk
 
         print "\r"+prefix, count, "rows."
+        sys.stdout.flush()
+
     return
 
 def __value_to_unicode (v):
@@ -711,6 +717,8 @@ def __store_file_from_url (
     store_as = ["data"] # allowed values are "data", "url", "file"
     ):
 
+    global args
+
     if eas_id:
         info = "EAS-ID:"+str(eas_id)+" ["+file_version+"]"
     else:
@@ -800,8 +808,9 @@ def __store_file_from_url (
         else:
             extra_info_txt = ""
 
+        if not args.silent:
+            print "Notice: File:", filestore_id, extra_info_txt.encode("utf8"), "stored in filestore.", info
 
-        print "Notice: File:", filestore_id, extra_info_txt.encode("utf8"), "stored in filestore.", info
 
     __execute(sql, """INSERT INTO file
             (filestore_id,
