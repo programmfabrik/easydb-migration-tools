@@ -47,6 +47,10 @@ import_parser.add_argument('--sqlite', nargs='*', default=[],                   
 import_parser.add_argument('--XML', nargs='*', default=[],                      help='Filename for XML')
 import_parser.add_argument('--CSV', nargs='*', default=[],                      help='Filename for CSV')
 
+import_parser=subparsers.add_parser('adhh', help="Add to Source from ADHH XML files")
+import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
+import_parser.add_argument('--xml', nargs='*', default=[],                      help='Filename(s) for ADHH XML')
+
 global args
 
 args = argparser.parse_args()
@@ -268,6 +272,49 @@ if args.mode=="file":
             extract.csv_to_source(
                 name=args.name,
                 filename=csv_file,
+                )
+
+##ADHH-IMPORT##################################################################
+if args.mode=="adhh":
+
+    source_file=args.target
+
+    if args.sqlite !=[]:
+        for sqlite_file in args.sqlite:
+            extract.__sqlite_init()
+            logging.info("Adding sqlite '" + sqlite_file + "' to Source")
+            extract.sqlite_to_source(
+                name=args.name,
+                filename=sqlite_file
+                )
+
+    if args.xml !=[]:
+        paths=[]
+        for xml_file in args.xml:
+            paths.append(os.path.abspath(xml_file))
+        basedir=""
+        contains = True
+        i=0
+        for char in paths[0]:
+            for path in paths:
+                if path[i] != char:
+                    contains=False
+            if contains == False:
+                break
+            else:
+                basedir+=char
+            i+=1
+        basedir_split = basedir.split("/")[1:len(basedir.split("/"))-1]
+        basedir = "/"
+        for elem in basedir_split:
+            basedir+=(elem+"/")
+
+        for xml_file in args.xml:
+            logging.info("Adding ADHH XML '" + xml_file + "' to Source")
+            extract.adhh_xml_to_source(
+                name=args.name,
+                filename=xml_file,
+                basedir=basedir
                 )
 
 

@@ -17,6 +17,7 @@ import requests
 import chardet
 import csv
 import xml.parsers.expat
+import xml.etree.ElementTree as ET
 import datetime
 
 source_conn = None
@@ -1628,6 +1629,107 @@ def merge_source (filename):
 
         if files > 0:
             print "Notice:", files, "files copied."
+
+# import an sql schema that is saved in multiple xml file
+# each file represents a table
+# all top level nodes are <item> (representing one row)
+# all nodes below the <item> node represent the data in a column in the current row
+# all other nodes are ignored
+def adhh_xml_to_source(
+    basedir,         # basedir which is not saved
+    filename,        # xml filename
+    name = None      # name in source
+    ):
+    # global xml_in_cdata, xml_cdata, xml_text, xml_depth, xml_node_id_stack, xml_node_element_stack, xml_cursor, xml_count
+    global source_conn
+    # global xml_transcribed_columns, xml_transcribed_counter
+    # global xml_filename
+
+    adhh_cursor = source_conn.cursor()
+
+    print "Info: parse ADHH from XML:",filename,"in",basedir
+
+    def escape_value(value):
+        return value.replace("\"", "\"\"")
+
+    root = None
+    try:
+        root = ET.XML(open(basedir + "/" + os.path.basename(filename)).read())
+    except Exception as e:
+        print "Error: could not parse XML from",filename+":",e
+        return
+
+    if root.tag != "items":
+        print "Error: invalid format, expected 'items' as root node"
+        return
+
+    if not "name" in root.attrib:
+        print "Error: invalid format, expected attribute 'name' in root node"
+        return
+
+    # get table name from root node
+    table_name = root.attrib["name"]
+
+    column_names = []
+    try:
+        cmd = "SELECT * FROM \"" + table_name + "\" LIMIT 1"
+        # print "SQL:",cmd
+        res = __execute(adhh_cursor, cmd)
+        column_names = [d[0] for d in res.description]
+        print "Notice: append to existing table '" + table_name + "'"
+    except:
+        print "Notice: new table '" + table_name + "'"
+        # if the table does not exist yet, create it before inserting the first row
+        cmd = "CREATE TABLE \"" + table_name + "\" (pkey INTEGER PRIMARY KEY)"
+        # print "SQL:",cmd
+        __execute(adhh_cursor, cmd)
+
+        cmd = """INSERT INTO origin
+                (origin_database_name, origin_type, origin_table_name, source_name, source_table_name)
+                VALUES (?,?,?,?,?)"""
+        __execute(adhh_cursor, cmd, [os.path.abspath(filename), "adhh", table_name, table_name, table_name])
+
+    inserted_rows = 0
+    for i, item_node in enumerate(root):
+        if item_node.tag != "item":
+            print "Error: invalid node",item_node.tag,"(expected 'item')"
+            return
+
+        values = {}
+        for sub_node in item_node:
+            add_column = False
+            if sub_node.tag != "column":
+                print "Error: invalid node",item_node.tag,"(expected 'column')"
+                return
+            if not "name" in sub_node.attrib:
+                print "Error: expected attribute 'name' in 'column' node"
+                return
+
+            values[sub_node.attrib["name"]] = sub_node.text
+            if sub_node.attrib["name"] not in column_names:
+                column_names.append(sub_node.attrib["name"])
+                # add new columns
+                cmd = "ALTER TABLE \"" + table_name + "\" ADD COLUMN \"" + sub_node.attrib["name"] + "\" TEXT"
+                # print "SQL:",cmd
+                __execute(adhh_cursor, cmd)
+
+        # insert the values of this <item> node to the table row
+        v = []
+        for c in column_names:
+            if c in values:
+                v.append((c, values[c]))
+
+        if len(v) > 0:
+            cmd = "INSERT INTO \"" + table_name + "\" ("
+            cmd += ", ".join([vt[0] for vt in v])
+            cmd += ") VALUES ("
+            cmd += ", ".join(["?" for vt in v])
+            cmd += ")"
+            # print "SQL:",cmd
+            __execute(adhh_cursor, cmd, [vt[1] for vt in v])
+            inserted_rows += 1
+
+    print "Notice: Inserted",inserted_rows,"rows into table",table_name
 
 def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
     global source_conn
