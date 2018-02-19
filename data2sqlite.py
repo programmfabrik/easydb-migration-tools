@@ -71,7 +71,7 @@ if args.mode=="easydb4":
     eas_instance=None
     eas_versions=None
     if args.config is not None:
-        req_url='{}/ezadmin/dumpconfig'.format(args.config[0])
+        req_url='{0}/ezadmin/dumpconfig'.format(args.config[0])
         ez_conf = requests.get(req_url, auth=(args.config[1],args.config[2])).json()
         name = req_url.split('.')[0].split('//')[1]
 
@@ -147,14 +147,14 @@ if args.mode=="easydb4":
         dsn=pg_dsn,
         include_tables_exclusive=False,
         include_tables = {
-        '{}.eadb_links'.format('public'): {
+        'public.eadb_links': {
             'onCreate': eadb_link_index
             }
         },
         exclude_tables = [
-            '{}.eadb_changelog'.format('public'),
-            '{}.eadb_table_sql_changelog'.format('public'),
-            '{}.eadb_rights'.format('public')
+            'public.eadb_changelog',
+            'public.eadb_table_sql_changelog',
+            'public.eadb_rights'
             ]
         )
 
