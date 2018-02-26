@@ -4,6 +4,7 @@ import json
 import sqlite3
 import hashlib
 from datetime import datetime
+import urllib2
 
 
 import_type_array_map = {
@@ -41,17 +42,14 @@ def commit(con, close = False):
 def generate_hash_reference(value):
     return hashlib.md5(value.encode("utf-8")).hexdigest()
 
-def datetime_to_iso(dt_str):
-    DATE_FORMAT_INPUT = "%Y-%m-%d %H:%M:%S"
-    DATE_FORMAT_OUTPUT = "%Y-%m-%dT%H:%M:%S"
+ISO_FORMAT_OUTPUT = "%Y-%m-%dT%H:%M:%S"
+DATE_FORMAT_OUTPUT = "%Y-%m-%d"
 
-    if dt_str[:4] == "0000":
-        return None
-    try:
-        d = datetime.strptime(dt_str, DATE_FORMAT_INPUT)
-        return d.strftime(DATE_FORMAT_OUTPUT)
-    except:
-        return None
+def datetime_to_iso(d):
+    return d.strftime(ISO_FORMAT_OUTPUT)
+
+def datetime_to_date(d):
+    return d.strftime(DATE_FORMAT_OUTPUT)
 
 
 def to_easydb_date_object(d):
@@ -221,19 +219,43 @@ def build_objects(output_file, objects, objecttype, pool_reference = None, mappi
     return count
 
 
-def save_batch(filename, objects, objecttype, import_type = "db"):
-    f = open(filename, 'w')
-    f.write(
-        json.dumps(
-            {
-                "import_type": import_type,
-                "objecttype": objecttype,
-                "objects": objects
-            },
-            indent = 4
-        )
-    )
+def save_batch(payload, folder, filename, importtype, manifest, objecttype = None):
+    data = {
+        "import_type": importtype,
+        import_type_array_map[importtype][0]: payload
+    }
+    if objecttype is not None:
+        data["objecttype"] = objecttype
+
+    f = open(folder + filename, "w")
+    f.write(json.dumps(data, indent = 4))
     f.close()
+
+    manifest["payloads"].append(filename)
+    if objecttype is None:
+        print "saved importtype",importtype,"as",filename
+    else:
+        print "saved objecttype",objecttype,"as",filename
+    return manifest
+
+
+def check_image_url_reachable(url, verbose = False):
+    try:
+        request = urllib2.Request(url)
+        request.get_method = lambda : 'HEAD'
+        response = urllib2.urlopen(request)
+        if response.getcode() == 200:
+            if verbose:
+                print "URL",url,"reachable"
+            return True
+        else:
+            print "URL",url,"unreachable, Code:",response.getcode()
+            if verbose:
+                print response.info()
+            return False
+    except Exception as e:
+        print "URL",url,"unreachable, Error:",e
+        return False
 
 
 # helper methods for output of headers, footers etc
@@ -439,9 +461,9 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
             print "saved batch",depth,"as",batch_filename
 
             depth += 1
-    
+
     else:
-    
+
         for b in depth_ordered_batches:
             batch = 0
 
@@ -478,13 +500,13 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
 
 
 def export_basetype(basetype, folder, manifest, objects):
-	filename = "basetype_%s.json" % (basetype)
-	f = open(folder + "/" + filename, "w")
-	f.write(json.dumps({
-		"import_type": basetype,
-		import_type_array_map[basetype][0]: objects
-	}, indent=4))
-	f.close()
-	manifest["payloads"].append(filename)
-	print "saved basetype",basetype,"as",filename
-	return manifest
+    filename = "basetype_%s.json" % (basetype)
+    f = open(folder + "/" + filename, "w")
+    f.write(json.dumps({
+        "import_type": basetype,
+        import_type_array_map[basetype][0]: objects
+    }, indent=4))
+    f.close()
+    manifest["payloads"].append(filename)
+    print "saved basetype",basetype,"as",filename
+    return manifest
