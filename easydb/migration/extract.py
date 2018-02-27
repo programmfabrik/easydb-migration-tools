@@ -21,6 +21,16 @@ import xml.etree.ElementTree as ET
 import datetime
 
 source_conn = None
+global args
+global silent
+
+# we excect args to be a map, it can contain "silent"
+# to surpress some of the output
+
+try:
+    silent = args.silent
+except NameError:
+    silent = False
 
 def __pg_init():
     psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
@@ -66,7 +76,7 @@ def __str_to_unicode (s):
         # print rec[cn]
 
 def __execute(cursor, sql, bindings=None):
-    global args
+    global silent
 
     try:
         if bindings != None:
@@ -472,7 +482,7 @@ def __copy_data_to_source (
             insert = """INSERT INTO "%s" (__source_unique_id, %s) VALUES (?, %s)""" % (tb["table_name_in_source"], columns, ",".join(qms))
 
         prefix = "Notice: "+tb["table_name_in_source"]
-        if not args.silent:
+        if not silent:
             print prefix,
 
         sys.stdout.flush()
@@ -527,7 +537,7 @@ def __copy_data_to_source (
 
                 __execute(sql, insert, save_row)
 
-                if count%100==0 and not args.silent:
+                if count%100==0 and not silent:
                     print "\r"+prefix, count, "rows...",
                     sys.stdout.flush()
 
@@ -718,7 +728,7 @@ def __store_file_from_url (
     store_as = ["data"] # allowed values are "data", "url", "file"
     ):
 
-    global args
+    global silent
 
     if eas_id:
         info = "EAS-ID:"+str(eas_id)+" ["+file_version+"]"
@@ -809,7 +819,7 @@ def __store_file_from_url (
         else:
             extra_info_txt = ""
 
-        if not args.silent:
+        if not silent:
             print "Notice: File:", filestore_id, extra_info_txt.encode("utf8"), "stored in filestore.", info
 
 
