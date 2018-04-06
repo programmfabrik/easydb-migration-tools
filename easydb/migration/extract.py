@@ -36,6 +36,30 @@ def __pg_init():
     psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
     psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
+# FROM https://stackoverflow.com/questions/24307420/sqlalchemy-bc-dates-with-postgresql
+# to fix BC Dates
+
+CastDate = None
+
+# This function dafines types cast, and as returned database literal is already a string, no
+# additional logic required.
+def cast_date(value, cursor):
+    return value
+
+def register_cast_date(connection):
+    global CastDate
+    if CastDate:
+        return
+
+    cursor = connection.cursor()
+    cursor.execute('SELECT NULL::timestamp(0) with time zone')
+    psql_date_oid = cursor.description[0][1]
+
+    print "register cast date...", psql_date_oid
+
+    CastDate = psycopg2.extensions.new_type((psql_date_oid,), 'DATE', cast_date)
+    psycopg2.extensions.register_type(CastDate)
+
 def __sqlite_init():
     def adapt_list(l):
         return json.dumps(l)
@@ -141,8 +165,8 @@ def __pg_get_schema(conn,
         "bigint": "INTEGER",
         "smallint": "INTEGER",
         "USER-DEFINED": "TEXT",
-        "timestamp with time zone": "DATETIME",
-        "timestamp without time zone": "DATETIME",
+        "timestamp with time zone": "TEXT", # DATETIME",
+        "timestamp without time zone": "TEXT", # "DATETIME",
         "character varying": "TEXT",
         "bytea": "TEXT",
         "text": "TEXT",
@@ -1143,6 +1167,8 @@ def pg_to_source(
     exclude_tables=None
     ):
     conn = psycopg2.connect(dsn)
+    register_cast_date(conn)
+
     schema = __pg_get_schema(conn=conn, schema_name=schema_name, include_tables=include_tables, include_schema_in_table_name=include_schema_in_table_name, include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
     __create_schema_in_source(name=name, schema=schema)
     __copy_data_to_source(conn=conn, schema=schema, limit=limit)
