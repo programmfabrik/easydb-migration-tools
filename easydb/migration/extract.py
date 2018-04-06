@@ -55,8 +55,6 @@ def register_cast_date(connection):
     cursor.execute('SELECT NULL::timestamp(0) with time zone')
     psql_date_oid = cursor.description[0][1]
 
-    print "register cast date...", psql_date_oid
-
     CastDate = psycopg2.extensions.new_type((psql_date_oid,), 'DATE', cast_date)
     psycopg2.extensions.register_type(CastDate)
 
@@ -634,6 +632,17 @@ def __sqlite_get_schema(conn,
 
     return schema
 
+def res_get_json (res):
+    if not hasattr(res, "json"):
+        # very old python request, no json attribute
+        return json.loads(res.content)
+    elif isinstance(res.json, dict):
+        # old python.requests module: json is an object
+        return res.json
+    else:
+        # new python.requests module: json is a method
+        return res.json()
+
 def __store_eas_id (
     name, # name of source
     url,  # url of eas
@@ -650,19 +659,12 @@ def __store_eas_id (
     req = url+"/bulkversions?instance="+instance+"&asset_ids=["+_eas_id+"]"
 
     _res = requests.get(req)
+
     if _res.status_code != 200:
         print """Warning: EAS-ID %s not found or error from EAS-Server. Status: "%s".""" % (eas_id, _res.status_code), _res.text
         return False
 
-    if not hasattr(_res, "json"):
-        # very old python request, no json attribute
-        res = json.loads(_res.content)
-    elif isinstance(_res.json, dict):
-        # old python.requests module: json is an object
-        res = _res.json
-    else:
-        # new python.requests module: json is a method
-        res = _res.json()
+    res = res_get_json(_res)
 
     count = 0
     skips = 0

@@ -72,7 +72,10 @@ if args.mode=="easydb4":
     eas_versions=None
     if args.config is not None:
         req_url='{0}/ezadmin/dumpconfig'.format(args.config[0])
-        ez_conf = requests.get(req_url, auth=(args.config[1],args.config[2])).json()
+        _res = requests.get(req_url, auth=(args.config[1],args.config[2]))
+
+        ez_conf = extract.res_get_json(_res)
+
         name = req_url.split('.')[0].split('//')[1]
 
         pg_dsn = ez_conf['PDO_DATA_DSN'].split(':')[1].replace(';',' ')
