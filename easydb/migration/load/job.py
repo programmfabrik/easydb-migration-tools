@@ -22,7 +22,7 @@ logger = logging.getLogger('easydb.migration.load.job')
 
 class LoadJob(object):
 
-    def __init__(self, easydb_url, login, password, eas_url, eas_instance, source_dir, destination_dir, exit_on_error=True, *args, **kwargs):
+    def __init__(self, easydb_url, login, password, eas_url, eas_instance, source_dir, destination_dir, exit_on_error = True, use_rput = True, *args, **kwargs):
         self.exit_on_error = exit_on_error
         self.easydb_api = easydb.server.api.EasydbAPI(easydb_url)
         self.easydb_api.authenticate(login, password)
@@ -32,6 +32,7 @@ class LoadJob(object):
         self.source_dir = source_dir
         self.destination_dir = destination_dir
         self.source = None
+        self.use_rput = use_rput
 
     def __del__(self):
         if self.source is not None and self.source.is_open():
@@ -43,7 +44,7 @@ class LoadJob(object):
             stop_on_error = self.exit_on_error
         try:
             easydb.migration.load.loader.load(
-                self.source, self.destination, self.easydb_api, self.eas_url, self.eas_instance, objecttypes, custom_nested_loaders, batch_size, stop_on_error, search_assets, verify_ssl)
+                self.source, self.destination, self.easydb_api, self.eas_url, self.eas_instance, objecttypes, custom_nested_loaders, batch_size, stop_on_error, search_assets, verify_ssl, self.use_rput)
         except easydb.migration.transform.common.MigrationStop:
             if self.exit_on_error:
                 exit(1)
@@ -67,7 +68,7 @@ class LoadJob(object):
     def create_job(job_name):
         argparser = LoadJob.get_argparser(job_name)
         a = argparser.parse_args()
-        job = LoadJob(a.url, a.login, a.password, a.eas_url, a.eas_instance, a.source, a.destination)
+        job = LoadJob(a.url, a.login, a.password, a.eas_url, a.eas_instance, a.source, a.destination, True, a.use_rput)
         job.destination, job.source = easydb.migration.transform.prepare.prepare(
             job.easydb_api, job.destination_dir, job.source_dir, easydb.migration.transform.prepare.CreatePolicy.IfNotExists)
         job.source.open()
@@ -83,4 +84,5 @@ class LoadJob(object):
         argparser.add_argument('destination',  help='destination directory')
         argparser.add_argument('--login',      help='easydb login', default='root')
         argparser.add_argument('--password',   help='easydb password', default='admin')
+        argparser.add_argument('--use_rput',   help='if set, the RPUT method instead of the PUT method is used to upload assets to the EAS', action='store_true')
         return argparser

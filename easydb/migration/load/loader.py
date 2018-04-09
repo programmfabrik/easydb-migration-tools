@@ -428,7 +428,7 @@ def get_next_objects(db, objecttype):
 
 class Loader(object):
 
-    def __init__(self, source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl = True, uplink_id=None):
+    def __init__(self, source, destination, ez_schema, ezapi, eas_url, eas_instance, objecttype, tmp_asset_file, stop_on_error, search_assets, verify_ssl = True, uplink_id=None, use_rput = False):
         self.source = source
         self.destination = destination
         self.ez_schema = ez_schema
@@ -444,6 +444,7 @@ class Loader(object):
         self.custom_nested_loaders = {}
         self.search_assets = search_assets
         self.verify_ssl = verify_ssl
+        self.use_rput = use_rput
 
     def preload(self):
         for objecttype, custom_loader in self.custom_nested_loaders.items():
@@ -584,7 +585,7 @@ class Loader(object):
                         value[language] = rows[0][self.columns.get_column(name).alias]
                 else:
                     value = rows[0][self.columns.get_column(column_def.name).alias]
-            
+
             elif column_def.kind == 'link':
                 for ot_name, ot in self.ez_schema.objecttypes.items():
                     if ot_name == column_def.other_table:
@@ -592,7 +593,7 @@ class Loader(object):
                         break
                 else:
                     raise Exception('table {0} not found'.format(column_def.other_table))
-                
+
                 #for other_column in other_ot.columns.values():
                 #    if other_column.kind=="column" and other_column.column_type=="link":
                 #            if other_column.other_table == column_def.name:
@@ -740,7 +741,10 @@ class Loader(object):
                         logger.debug('eas_id {0} found, but already in use'.format(eas_id))
                     else:
                         return eas_id
-        return self._put_asset(filename, asset_file)
+        if self.use_rput:
+            return self._rput_asset(filename, asset_file)
+        else:
+            return self._put_asset(filename, asset_file)
 
     def _search_asset(self, asset_file):
         eas_file_unique_id = get_eas_file_unique_id(asset_file)
@@ -777,6 +781,24 @@ class Loader(object):
             try:
                 logger.debug('loading asset: attempt {0}: {1}'.format(i, filename))
                 r = self.ezapi.post('eas/put', files={'files[]': ( filename, open(asset_file, 'rb'))})
+                v = {}
+                compare_json(r, [{ '_id': '$eas_id' }], v)
+                eas_id = v['eas_id']
+                logger.debug('asset loaded to eas: {0}'.format(eas_id))
+                return eas_id
+            except Exception as e:
+                logger.error('loading asset "{0}" failed: {1}'.format(filename, e))
+                return None
+        return None
+
+    def _rput_asset(self, filename, asset_file):
+        for i in range(1,4):
+            try:
+                logger.debug('loading asset: attempt {0}: {1}'.format(i, filename))
+                r = self.ezapi.post('eas/rput', params={
+                    'url': asset_file,
+                    'filename': filename
+                })
                 v = {}
                 compare_json(r, [{ '_id': '$eas_id' }], v)
                 eas_id = v['eas_id']
@@ -960,7 +982,7 @@ class LoaderOld(object):
         self.table_def = destination.get_table_for_objecttype(objecttype)
         self.tmp_asset_file = tmp_asset_file
         self.new_loader=new_loader
-        
+
     def load(self, source):
         logger.debug('load {0}'.format(self.objecttype.name))
         manage_source = not source.is_open()
@@ -1040,7 +1062,7 @@ and c."__source_unique_id" = ?
                     if not column_def.name in o.fields.keys():
                         o.fields[column_def.name]=[]
                     if asset_info:
-                        o.fields[column_def.name].append({"_id": asset_info[0][0],"preferred": asset_info[0][1]})   
+                        o.fields[column_def.name].append({"_id": asset_info[0][0],"preferred": asset_info[0][1]})
                     continue
                     value = []
                     eas_id_alias = None
