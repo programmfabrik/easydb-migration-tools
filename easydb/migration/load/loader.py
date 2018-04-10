@@ -158,7 +158,14 @@ def load_collections(
     collections=ezapi.get('collection/list')
     root_collection_id=collections[0]['collection']['_id']
 
-    collections=ezapi.get('collection/list/{}'.format(root_collection_id))
+    root_collection_path = 'collection/list/{}'.format(root_collection_id)
+    collections_batch=ezapi.get(root_collection_path)
+    collections = collections_batch
+    offset = 0
+    while len(collections_batch) == 1000:
+        offset += 1000
+        collections_batch = ezapi.get(root_collection_path, params={'offset': offset})
+        collections += collections_batch
 
     for collection in collections:
         db.open()
@@ -250,7 +257,7 @@ def load_collection_objects(
                 if rows[0]['COUNT(*)']==0:
                     del(rows)
                     break
-                rows=db.execute('SELECT o.__easydb_goid as __easydb_goid, o.__source_unique_id as __source_unique_id, o.collection_id as collection_id FROM "easydb.ez_collection__objects" co JOIN "{}" o on co.object_id == o.__easydb_id WHERE co.object_goid is NULL'.format(table['name'])).get_rows()
+                rows=db.execute('SELECT o.__easydb_goid as __easydb_goid, o.__source_unique_id as __source_unique_id, o.collection_id as collection_id FROM "easydb.ez_collection__objects" co JOIN "{}" o on co.object_id == o.__source_unique_id WHERE co.object_goid is NULL'.format(table['name'])).get_rows()
                 logger.info('Updating collection_objects GOID for type {}'.format(table['name']))   
                 l=len(rows)
                 i=0
