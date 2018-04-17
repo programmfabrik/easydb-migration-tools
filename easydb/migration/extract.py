@@ -654,14 +654,20 @@ def __store_eas_id (
     eas_versions = { "original": ["url"] }
     ):
 
-    _eas_id = str(eas_id)
+    if isinstance(eas_id, list):
+        _eas_ids_a = map(str, eas_id)
+        assert(isinstance(source_unique_id, list))
+        _source_unique_ids_a = source_unique_id
+    else:
+        _eas_ids_a = [str(eas_id),]
+        _source_unique_ids_a = [source_unique_id,]
 
-    req = url+"/bulkversions?instance="+instance+"&asset_ids=["+_eas_id+"]"
+    req = url+"/bulkversions?instance="+instance+"&asset_ids=["+",".join(_eas_ids_a)+"]"
 
     _res = requests.get(req)
 
     if _res.status_code != 200:
-        print """Warning: EAS-ID %s not found or error from EAS-Server. Status: "%s".""" % (eas_id, _res.status_code), _res.text
+        print """Warning: EAS-ID %s not found or error from EAS-Server. Status: "%s".""" % (_eas_ids_a, _res.status_code), _res.text
         return False
 
     res = res_get_json(_res)
@@ -669,69 +675,73 @@ def __store_eas_id (
     count = 0
     skips = 0
 
-    for (eas_version, store_as) in eas_versions.items():
-        count += 1
-        original = None
+    for i in range(len(_eas_ids_a)):
+        _eas_id = _eas_ids_a[i]
+        _source_unique_id = _source_unique_ids_a[i]
 
-        for version in res[_eas_id]["versions"]:
-            if version["version"] == "original":
-                original = version
-                break
+        for (eas_version, store_as) in eas_versions.items():
+            count += 1
+            original = None
 
-        if not original:
-            print "Warning: EAS-ID", eas_id, "Original not found."""
-            return False
+            for version in res[_eas_id]["versions"]:
+                if version["version"] == "original":
+                    original = version
+                    break
 
-        use_version = None
-        for version in res[_eas_id]["versions"]:
-            if version["version"] == eas_version:
-                use_version = version
-                break
+            if not original:
+                print "Warning: EAS-ID", _eas_id, "Original not found."""
+                return False
 
-        if not use_version:
-            print "Notice: EAS-ID", eas_id, "Version", eas_version, """not found."""
-            # skip
-            skips += 1
-            continue
+            use_version = None
+            for version in res[_eas_id]["versions"]:
+                if version["version"] == eas_version:
+                    use_version = version
+                    break
 
-        if use_version["status"] != "done":
-            print """Warning: EAS-ID %s, Version "%s" has status "%s", Request: "%s", skipping.""" % (eas_id, use_version["version"], use_version["status"], req)
-            # skip
-            skips += 1
-            continue
+            if not use_version:
+                print "Notice: EAS-ID", _eas_id, "Version", eas_version, """not found."""
+                # skip
+                skips += 1
+                continue
 
-        eas_root_id = res[_eas_id]["root_id"]
+            if use_version["status"] != "done":
+                print """Warning: EAS-ID %s, Version "%s" has status "%s", Request: "%s", skipping.""" % (_eas_id, use_version["version"], use_version["status"], req)
+                # skip
+                skips += 1
+                continue
 
-        if eas_root_id:
-            # we need to insert this first, because of a foreign key we
-            # have
-            ret = __store_eas_id(
+            eas_root_id = res[_eas_id]["root_id"]
+
+            if eas_root_id:
+                # we need to insert this first, because of a foreign key we
+                # have
+                ret = __store_eas_id(
+                    name = name,
+                    instance = instance,
+                    url = url,
+                    eas_id = eas_root_id,
+                    eas_versions = { eas_version: store_as },
+                    table_name = table_name,
+                    source_unique_id = _source_unique_id,
+                    column_name = column_name
+                    )
+                if ret == False:
+                    print "Warning: Could not insert root id, not storing root_id", eas_root_id
+                    eas_root_id = None
+
+            __store_file_from_url(
+                url = url+use_version["link"],
                 name = name,
-                instance = instance,
-                url = url,
-                eas_id = eas_root_id,
-                eas_versions = { eas_version: store_as },
-                table_name = table_name,
-                source_unique_id = source_unique_id,
-                column_name = column_name
+                source_table_name = table_name,
+                source_unique_id = _source_unique_id,
+                source_column_name = column_name,
+                original_filename = original["custom"]["original_filename"],
+                file_unique_id = use_version["hash"],
+                eas_id = int(_eas_id),
+                eas_root_id = eas_root_id,
+                file_version = eas_version,
+                store_as = store_as
                 )
-            if ret == False:
-                print "Warning: Could not insert root id, not storing root_id", eas_root_id
-                eas_root_id = None
-
-        __store_file_from_url(
-            url = url+use_version["link"],
-            name = name,
-            source_table_name = table_name,
-            source_unique_id = source_unique_id,
-            source_column_name = column_name,
-            original_filename = original["custom"]["original_filename"],
-            file_unique_id = use_version["hash"],
-            eas_id = eas_id,
-            eas_root_id = eas_root_id,
-            file_version = eas_version,
-            store_as = store_as
-            )
 
     if skips > 0:
         print "Warning: %s out of %s versions failed to export." % (skips, count)
@@ -1221,15 +1231,35 @@ def eas_to_source (name, url, instance, eas_versions):
         print "Notice: Importing %s.%s..." %(table_name, column_name)
         __execute(sql2, cmd)
         count = 0
+        eas_ids = []
+        source_unique_ids = []
         for row2 in sql2.fetchall():
             count += 1
+            eas_ids.append(row2[0])
+            source_unique_ids.append(row2[1])
+
+            if len(eas_ids) == 1000:
+                __store_eas_id(
+                    name = name,
+                    instance = instance,
+                    url = url,
+                    eas_id = eas_ids,
+                    table_name = source_table_name, #table_name,
+                    source_unique_id = source_unique_ids,
+                    column_name = column_name,
+                    eas_versions = eas_versions
+                    )
+                eas_ids = []
+                source_unique_ids = []
+
+        if len(eas_ids) > 0:
             __store_eas_id(
                 name = name,
                 instance = instance,
                 url = url,
-                eas_id = row2[0],
+                eas_id = eas_ids,
                 table_name = source_table_name, #table_name,
-                source_unique_id = row2[1],
+                source_unique_id = source_unique_ids,
                 column_name = column_name,
                 eas_versions = eas_versions
                 )
