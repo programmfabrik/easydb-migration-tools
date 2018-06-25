@@ -307,16 +307,16 @@ def load_collection_objects(
             goid = slide["object_goid"]
             if double and (i % 2 == 0 or i == 0):
                 slide_d["type"] = "duo"    
-                slide_d["left"] = {"_global_object_id": goid}
+                slide_d["left"] = {"global_object_id": goid}
             if double and (i%2 != 0):
                 slide_d["type"] = "duo"    
-                slide_d["right"] = {"_global_object_id": goid}
+                slide_d["right"] = {"global_object_id": goid}
                 double=False
                 slides_a.append(dict(slide_d))
                 slide_d = {}
             else:
                 slide_d["type"] = "one"
-                slide_d["center"] = {"_global_object_id": goid}
+                slide_d["center"] = {"global_object_id": goid}
                 slides_a.append(dict(slide_d))
                 slide_d = {}
         #TODO: Load the Collection first, then update Frontend Probs to prevent wrong version Error
