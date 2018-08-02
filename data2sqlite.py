@@ -153,12 +153,13 @@ if args.mode=="easydb4":
         'public.eadb_links': {
             'onCreate': eadb_link_index
             }
-        },
-        exclude_tables = [
-            'public.eadb_changelog',
-            'public.eadb_table_sql_changelog',
-            'public.eadb_rights'
-            ]
+        }
+        # ,
+        # exclude_tables = [
+        #     'public.eadb_changelog',
+        #     'public.eadb_table_sql_changelog',
+        #     'public.eadb_rights'
+        #     ]
         )
 
     if eas_versions is not None:
