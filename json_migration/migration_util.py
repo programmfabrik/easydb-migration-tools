@@ -387,7 +387,7 @@ def build_nested_entry_for_dante(nested_name, dante_uri, dante_name, plugin_name
     nested = {
         plugin_name: build_dante_plugin_code(dante_uri, dante_name)
     }
-    if freitext is not None:
+    if freitext is not None and freitext[1] != "0":
         nested[freitext[0]] = freitext[1]
 
     return insert_into_nested(nested_name, nested, nested_list)
