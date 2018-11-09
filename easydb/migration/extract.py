@@ -1323,6 +1323,9 @@ def csv_to_source (
     # print "  quotechar   = %-6r    lineterminator   = %r" % (_dialect.quotechar, _dialect.lineterminator)
     # print "  escapechar  = %-6r" % _dialect.escapechar
 
+    def escape_col(value):
+        return value.replace("\"", "")
+
     csvfile = open(filename, 'rb')
     reader = csv.reader(csvfile, _dialect)
     row_count = 0
@@ -1336,7 +1339,7 @@ def csv_to_source (
             if len(column_name) == 0:
                 cn = "column_"+str(idx)
 
-            columns.append({"name": cn, "type": "TEXT"})
+            columns.append({"name": escape_col(cn), "type": "TEXT"})
         row_count += 1
 
     if table_name == None:
