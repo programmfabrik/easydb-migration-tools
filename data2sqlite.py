@@ -23,12 +23,13 @@ argparser.add_argument('-s', '--silent', action='store_true',                   
 subparsers=argparser.add_subparsers(help="Set Datasources", dest='mode')
 
 migration_parser=subparsers.add_parser('easydb4',                               help="Set Migration Mode to create Source for Migration")
-migration_parser.add_argument('--config', nargs=3,                              help='Fetch Server Information from URL, usage: "--config URL login password" If set no other arguments have to be set')
+migration_parser.add_argument('--config', nargs=3,                              help='Fetch Server Information from URL, usage: "--config URL login password" If set, no other arguments need to be set.')
 migration_parser.add_argument('--pg_dsn',                                       help='DSN for easydb-PostgreSQL Server, must be sperated by spaces')
 migration_parser.add_argument('--sqlite_file',                                  help='Filename for easydb_SQLite Database')
 migration_parser.add_argument('--eas_url',                                      help='URL for easydb-EAS-Server')
 migration_parser.add_argument('--eas_instance',                                 help='Instance-Name on EAS-Server')
 migration_parser.add_argument('--eas_versions',  nargs='*',                     help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
+migration_parser.add_argument('--schema', default='public',                     help='Schema for pg-database, default = "public". Set to "none" to not use a schema.')
 
 pg_parser=subparsers.add_parser('pg', help="Add to Source from postgres")
 pg_parser.add_argument('--dsn',                                                 help='DSN for PostgreSQL,format: "dbname=easydb port=5432 user=postgres"')
@@ -70,6 +71,8 @@ if args.mode=="easydb4":
     eas_url=None
     eas_instance=None
     eas_versions=None
+    schema=None
+
     if args.config is not None:
         req_url='{0}/ezadmin/dumpconfig'.format(args.config[0])
         _res = requests.get(req_url, auth=(args.config[1],args.config[2]))
@@ -99,6 +102,14 @@ if args.mode=="easydb4":
     if sqlite_file is None:
         logging.warning('No sqlite_file provided. Program will terminate now')
         sys.exit(0)
+    if args.schema:
+        schema = args.schema
+
+    if not schema:
+        schema = 'public'
+
+    if schema == 'none':
+        schema = None
 
     if args.eas_url is not None:
         eas_url = args.eas_url
@@ -127,10 +138,9 @@ if args.mode=="easydb4":
         print("Instance: " + eas_instance)
         print("VERSIONS: " + str(eas_versions))
 
-    print("\n sqlite-file: \n")
-    print(sqlite_file)
-    print("PG-DSN")
-    print(pg_dsn)
+    print("\nsqlite-file: %s" % sqlite_file)
+    print("PG-DSN: %s" % pg_dsn)
+    print("Schema: %s" % schema)
     sys.stdout.flush()
 
     eadb_link_index = """
@@ -143,14 +153,19 @@ if args.mode=="easydb4":
         filename=sqlite_file
         )
 
+    if schema != None:
+        schema_prefix = schema+"."
+    else:
+        schema_prefix = ""
+
     logging.info("Adding to Source from pg")
     extract.pg_to_source(
         name=name,
-        schema_name='public',
+        schema_name=schema,
         dsn=pg_dsn,
         include_tables_exclusive=False,
         include_tables = {
-        'public.eadb_links': {
+        schema_prefix+'eadb_links': {
             'onCreate': eadb_link_index
             }
         }
