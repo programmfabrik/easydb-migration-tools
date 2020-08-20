@@ -27,7 +27,8 @@ def connect_to_sqlite(filename, detect_types=sqlite3.PARSE_DECLTYPES):
         print "Error: Unable to open sqlite file: "+filename
         raise e
 
-def commit(con, close = False):
+
+def commit(con, close=False):
     try:
         if con:
             con.commit()
@@ -39,14 +40,18 @@ def commit(con, close = False):
 
 # helper methods
 
+
 def generate_hash_reference(value):
     return hashlib.md5(value.encode("utf-8")).hexdigest()
+
 
 ISO_FORMAT_OUTPUT = "%Y-%m-%dT%H:%M:%S"
 DATE_FORMAT_OUTPUT = "%Y-%m-%d"
 
+
 def datetime_to_iso(d):
     return d.strftime(ISO_FORMAT_OUTPUT)
+
 
 def datetime_to_date(d):
     return d.strftime(DATE_FORMAT_OUTPUT)
@@ -58,10 +63,10 @@ def to_easydb_date_object(d):
     }
 
 
-def print_js(js, _ind = 4):
+def print_js(js, _ind=4):
     if _ind == 'compact':
-        return json.dumps(js, indent = None, separators = (',', ':'))
-    return json.dumps(js, indent = _ind)
+        return json.dumps(js, indent=None, separators=(',', ':'))
+    return json.dumps(js, indent=_ind)
 
 
 def format_time_diff(t_start, note):
@@ -69,9 +74,8 @@ def format_time_diff(t_start, note):
     return note + " took " + str(t_diff.total_seconds()) + " sec"
 
 
-
 # recursive generating of payloads of hierarchic objects
-def build_hierarchic_objects(output_file, hierarchy, objecttype, pool_reference = None, mapping = {}, parent_ref = None, first_object = True, reference_column = "reference"):
+def build_hierarchic_objects(output_file, hierarchy, objecttype, pool_reference=None, mapping={}, parent_ref=None, first_object=True, reference_column=None):
     count = 0
     for h in hierarchy:
         # create unique reference by appending a hashsum of the parent
@@ -86,12 +90,13 @@ def build_hierarchic_objects(output_file, hierarchy, objecttype, pool_reference 
             objecttype: {
                 # default object fields
                 "_version": 1,
-                "_id": None,
-
-                # migration reference
-                reference_column: reference,
+                "_id": None
             }
         }
+
+        # migration reference
+        if reference_column is not None:
+            payload[objecttype][reference_column] = o[reference_column]
 
         if pool_reference is not None:
             payload["_pool"] = {
@@ -135,27 +140,27 @@ def build_hierarchic_objects(output_file, hierarchy, objecttype, pool_reference 
         else:
             output_file.write(', ')
 
-        output_file.write(json.dumps(payload, indent = 4))
+        output_file.write(json.dumps(payload, indent=4))
 
         count += 1
 
         if "children" in hierarchy[h]:
             count += build_hierarchic_objects(
-                output_file = output_file,
-                hierarchy = hierarchy[h]["children"],
-                objecttype = objecttype,
+                output_file=output_file,
+                hierarchy=hierarchy[h]["children"],
+                objecttype=objecttype,
                 # pool_reference = pool_reference,
-                mapping = mapping,
-                parent_ref = {
+                mapping=mapping,
+                parent_ref={
                     reference_column: reference
                 },
-                first_object = False,
-                reference_column = reference_column)
+                first_object=False,
+                reference_column=reference_column)
 
     return count
 
 
-def build_objects(output_file, objects, objecttype, pool_reference = None, mapping = {}, first_object = True, reference_column = "reference"):
+def build_objects(output_file, objects, objecttype, pool_reference=None, mapping={}, first_object=True, reference_column=None):
     count = 0
     for o in objects:
         payload = {
@@ -167,15 +172,16 @@ def build_objects(output_file, objects, objecttype, pool_reference = None, mappi
             objecttype: {
                 # default object fields
                 "_version": 1,
-                "_id": None,
-
-                # migration reference
-                reference_column: o[reference_column]
+                "_id": None
             }
         }
 
+        # migration reference
+        if reference_column is not None:
+            payload[objecttype][reference_column] = o[reference_column]
+
         if pool_reference is not None:
-            payload["_pool"] = {
+            payload[objecttype]["_pool"] = {
                 "pool": format_lookup("_id", "reference", pool_reference)
             }
 
@@ -211,7 +217,7 @@ def build_objects(output_file, objects, objecttype, pool_reference = None, mappi
         else:
             output_file.write(', ')
 
-        output_file.write(json.dumps(payload, indent = 4))
+        output_file.write(json.dumps(payload, indent=4))
 
         count += 1
         # print "wrote",count,"objects"
@@ -219,7 +225,7 @@ def build_objects(output_file, objects, objecttype, pool_reference = None, mappi
     return count
 
 
-def save_batch(payload, folder, filename, importtype, manifest, objecttype = None):
+def save_batch(payload, folder, filename, importtype, manifest, objecttype=None):
     data = {
         "import_type": importtype,
         import_type_array_map[importtype][0]: payload
@@ -228,39 +234,39 @@ def save_batch(payload, folder, filename, importtype, manifest, objecttype = Non
         data["objecttype"] = objecttype
 
     f = open(folder + filename, "w")
-    f.write(json.dumps(data, indent = 4))
+    f.write(json.dumps(data, indent=4))
     f.close()
 
     manifest["payloads"].append(filename)
     if objecttype is None:
-        print "saved importtype",importtype,"as",filename
+        print "saved importtype", importtype, "as", filename
     else:
-        print "saved objecttype",objecttype,"as",filename
+        print "saved objecttype", objecttype, "as", filename
     return manifest
 
 
-def check_image_url_reachable(url, verbose = False):
+def check_image_url_reachable(url, verbose=False):
     try:
         request = urllib2.Request(url)
-        request.get_method = lambda : 'HEAD'
+        request.get_method = lambda: 'HEAD'
         response = urllib2.urlopen(request)
         if response.getcode() == 200:
             if verbose:
-                print "URL",url,"reachable"
+                print "URL", url, "reachable"
             return True
         else:
-            print "URL",url,"unreachable, Code:",response.getcode()
+            print "URL", url, "unreachable, Code:", response.getcode()
             if verbose:
                 print response.info()
             return False
     except Exception as e:
-        print "URL",url,"unreachable, Error:",e
+        print "URL", url, "unreachable, Error:", e
         return False
 
 
 # helper methods for output of headers, footers etc
 
-def write_header(filename, objecttype, import_type = "db"):
+def write_header(filename, objecttype, import_type="db"):
     output_file = open(filename, 'w')
     output_file.write("""
     {
@@ -284,7 +290,7 @@ def write_footer(filename):
 
 # save hierarchic objects
 
-def write_payload_hierarchic_objects(output_filename, hierarchy, objecttype, pool_reference = None, mapping = {}, reference_column = "reference"):
+def write_payload_hierarchic_objects(output_filename, hierarchy, objecttype, pool_reference=None, mapping={}, reference_column="reference"):
 
     print "Output File:", output_filename
 
@@ -293,12 +299,12 @@ def write_payload_hierarchic_objects(output_filename, hierarchy, objecttype, poo
     # objects
     output_file = open(output_filename, 'a')
     object_count = build_hierarchic_objects(
-        output_file = output_file,
-        hierarchy = hierarchy,
-        pool_reference = pool_reference,
-        objecttype = objecttype,
-        mapping = mapping,
-        reference_column = reference_column
+        output_file=output_file,
+        hierarchy=hierarchy,
+        pool_reference=pool_reference,
+        objecttype=objecttype,
+        mapping=mapping,
+        reference_column=reference_column
     )
     output_file.close()
     # print "wrote", object_count, "objects"
@@ -306,7 +312,7 @@ def write_payload_hierarchic_objects(output_filename, hierarchy, objecttype, poo
     write_footer(output_filename)
 
 
-def write_payload_list_objects(output_filename, objects, objecttype, pool_reference = None, mapping = {}, reference_column = "reference"):
+def write_payload_list_objects(output_filename, objects, objecttype, pool_reference=None, mapping={}, reference_column="reference"):
 
     print "Output File:", output_filename
 
@@ -315,12 +321,12 @@ def write_payload_list_objects(output_filename, objects, objecttype, pool_refere
     # objects
     output_file = open(output_filename, 'a')
     object_count = build_objects(
-        output_file = output_file,
-        objects = objects,
-        objecttype = objecttype,
-        pool_reference = pool_reference,
-        mapping = mapping,
-        reference_column = reference_column
+        output_file=output_file,
+        objects=objects,
+        objecttype=objecttype,
+        pool_reference=pool_reference,
+        mapping=mapping,
+        reference_column=reference_column
     )
     output_file.close()
     # print "wrote", object_count, "objects"
@@ -328,7 +334,7 @@ def write_payload_list_objects(output_filename, objects, objecttype, pool_refere
     write_footer(output_filename)
 
 
-def format_lookup(key, ref_column, ref_value, only_inner = False):
+def format_lookup(key, ref_column, ref_value, only_inner=False):
     l = {
         ref_column: ref_value
     }
@@ -339,7 +345,7 @@ def format_lookup(key, ref_column, ref_value, only_inner = False):
     }
 
 
-def execute_statement(cursor, sql, connection = None, params = [], commit = False, close_connection = False, verbose = False):
+def execute_statement(cursor, sql, connection=None, params=[], commit=False, close_connection=False, verbose=False):
     if verbose:
         print "SQL:", sql.strip()
         if len(params) > 0:
@@ -375,7 +381,7 @@ def get_nested_name(name):
     return "_nested:" + name
 
 
-def insert_into_nested(nested_name, nested_table, nested_list = {}):
+def insert_into_nested(nested_name, nested_table, nested_list={}):
     nested_name = get_nested_name(nested_name)
     if not nested_name in nested_list:
         nested_list[nested_name] = []
@@ -383,7 +389,7 @@ def insert_into_nested(nested_name, nested_table, nested_list = {}):
     return nested_list
 
 
-def build_nested_entry_for_dante(nested_name, dante_uri, dante_name, plugin_name, freitext = None, nested_list = {}):
+def build_nested_entry_for_dante(nested_name, dante_uri, dante_name, plugin_name, freitext=None, nested_list={}):
     nested = {
         plugin_name: build_dante_plugin_code(dante_uri, dante_name)
     }
@@ -404,7 +410,7 @@ def insert_field_into_object(objecttype, field_name, field_value, obj):
     return obj
 
 
-def breadth_first_batches(objects, objecttype, batches, parent_key = "lookup:_id_parent", parents = [], reference_column = "reference"):
+def breadth_first_batches(objects, objecttype, batches, parent_key="lookup:_id_parent", parents=[], reference_column="reference"):
     parent_lookups = []
     sorted_objects = []
     if len(parents) < 1:
@@ -422,20 +428,21 @@ def breadth_first_batches(objects, objecttype, batches, parent_key = "lookup:_id
                     sorted_objects.append(o)
     if len(sorted_objects) > 0:
         batches.append(sorted_objects)
-        print "collected",len(sorted_objects),"in the current depth"
+        print "collected", len(sorted_objects), "in the current depth"
     if len(parent_lookups) > 0:
-        breadth_first_batches(objects, objecttype, batches, parent_key, parent_lookups, reference_column)
+        breadth_first_batches(objects, objecttype, batches,
+                              parent_key, parent_lookups, reference_column)
     return batches
 
 
-def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference_column = "reference", batch_size = None):
+def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference_column="reference", batch_size=None):
     if len(path) > 0 and not path[-1] == "/":
         path += "/"
     depth_ordered_batches = breadth_first_batches(
-        objects = json.loads(open(path + filename).read())["objects"],
-        objecttype = objecttype,
-        batches = [],
-        reference_column = reference_column
+        objects=json.loads(open(path + filename).read())["objects"],
+        objecttype=objecttype,
+        batches=[],
+        reference_column=reference_column
     )
     depth = 0
 
@@ -452,13 +459,13 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
                     first_object = False
                 else:
                     output_file.write(",\n")
-                output_file.write(json.dumps(ob, indent = 4))
+                output_file.write(json.dumps(ob, indent=4))
             output_file.close()
 
             write_footer(path + batch_filename)
 
             manifest["payloads"].append(batch_filename)
-            print "saved batch",depth,"as",batch_filename
+            print "saved batch", depth, "as", batch_filename
 
             depth += 1
 
@@ -471,7 +478,8 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
             for i in range(len(b)):
                 first_object = False
                 if current_batch_size == 0:
-                    batch_filename = "%s_%03d_batch_%03d.json" % (objecttype, depth, batch)
+                    batch_filename = "%s_%03d_batch_%03d.json" % (
+                        objecttype, depth, batch)
                     write_header(path + batch_filename, objecttype)
                     first_object = True
 
@@ -481,7 +489,7 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
                     first_object = False
                 else:
                     output_file.write(",\n")
-                output_file.write(json.dumps(ob, indent = 4))
+                output_file.write(json.dumps(ob, indent=4))
                 output_file.close()
                 current_batch_size += 1
 
@@ -492,7 +500,7 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
                     batch += 1
 
                     manifest["payloads"].append(batch_filename)
-                    print "saved batch",depth,batch,"as",batch_filename
+                    print "saved batch", depth, batch, "as", batch_filename
 
             depth += 1
 
@@ -508,5 +516,5 @@ def export_basetype(basetype, folder, manifest, objects):
     }, indent=4))
     f.close()
     manifest["payloads"].append(filename)
-    print "saved basetype",basetype,"as",filename
+    print "saved basetype", basetype, "as", filename
     return manifest
