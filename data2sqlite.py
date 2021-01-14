@@ -47,7 +47,7 @@ import_parser=subparsers.add_parser('file', help="Add to Source from other files
 import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
 import_parser.add_argument('--XML', nargs='*', default=[],                      help='Filename(s) for XML')
 import_parser.add_argument('--CSV', nargs='*', default=[],                      help='Filename(s) for CSV')
-import_parser.add_argument('--excel', nargs='*', default=[],                    help='Filename(s) for Excel')
+import_parser.add_argument('--XLSX', nargs='*', default=[],                     help='Filename(s) for Excel (Supported formats are .xlsx, .xlsm, .xltx, .xltm)')
 
 import_parser=subparsers.add_parser('adhh', help="Add to Source from ADHH XML files")
 import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
@@ -294,13 +294,12 @@ if args.mode=="file":
                 filename=csv_file,
                 )
 
-    if args.excel !=[]:
-        for csv_file in args.excel:
-            logging.info("Adding Excel file to Source")
+    if args.XLSX != []:
+        for xlsx_file in args.XLSX:
+            logging.info("Adding XLSX to Source")
             extract.excel_to_source(
                 name=args.name,
-                filename=csv_file,
-                )
+                filename=xlsx_file)
 
 ##ADHH-IMPORT##################################################################
 if args.mode=="adhh":

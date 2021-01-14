@@ -1412,7 +1412,7 @@ def excel_to_source (
     wb = openpyxl.load_workbook(filename)
 
     for sheetname in wb.sheetnames:
-        print "Notice: excel sheet", "\""+sheetname+"\""
+        print "Notice: Reading excel sheet", "\""+sheetname+"\""
 
         sheet = wb[sheetname]
 
@@ -1460,7 +1460,7 @@ def excel_to_source (
 
         __create_table_in_source(
             origin_database_name = os.path.abspath(filename),
-            origin_type = "excel",
+            origin_type = "xlsx",
             source_name = name,
             table_def = table_def,
             origin_table_name = "{}.{}".format(table_name, sheetname)
