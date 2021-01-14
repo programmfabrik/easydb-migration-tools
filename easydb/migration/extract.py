@@ -19,6 +19,7 @@ import csv
 import xml.parsers.expat
 import xml.etree.ElementTree as ET
 import datetime
+import openpyxl
 
 source_conn = None
 global args
@@ -1298,6 +1299,12 @@ def get_source_conn():
     global source_conn
     return source_conn
 
+def escape_col(value):
+    return value.replace("\"", "")
+
+def format_insert(table_def, column_names, qms):
+    return """INSERT INTO "%s" (__source_unique_id, %s) VALUES(%s)""" % (table_def["table_name_in_source"],",".join(column_names), ",".join(qms))
+
 def csv_to_source (
     name,             # name in source
     filename,         # csv filename
@@ -1323,9 +1330,6 @@ def csv_to_source (
     # print "  doublequote = %-6r    quoting          = %s" % (_dialect.doublequote, quoting_modes[_dialect.quoting])
     # print "  quotechar   = %-6r    lineterminator   = %r" % (_dialect.quotechar, _dialect.lineterminator)
     # print "  escapechar  = %-6r" % _dialect.escapechar
-
-    def escape_col(value):
-        return value.replace("\"", "")
 
     csvfile = open(filename, 'rb')
     reader = csv.reader(csvfile, _dialect)
@@ -1365,7 +1369,7 @@ def csv_to_source (
         origin_table_name = table_name
         )
 
-    insert = """INSERT INTO "%s" (__source_unique_id, %s) VALUES(%s)""" % (table_def["table_name_in_source"],",".join(column_names), ",".join(qms))
+    insert = format_insert(table_def, column_names, qms)
 
     for row in reader:
         bindings = []
@@ -1390,6 +1394,113 @@ def csv_to_source (
         row_count += 1
 
     csvfile.close()
+
+def excel_to_source (
+    name,             # name in source
+    filename,         # excel filename
+    table_name=None   # table name in source, defaults to filename's basename
+    ):
+
+    global source_conn
+    sql = source_conn.cursor()
+
+    if table_name is None:
+        table_name = os.path.basename(filename)
+
+    print "Notice: Reading excel file", "\""+filename+"\""
+
+    wb = openpyxl.load_workbook(filename)
+
+    for sheetname in wb.sheetnames:
+        print "Notice: Reading excel sheet", "\""+sheetname+"\""
+
+        sheet = wb[sheetname]
+
+        # iterate over all rows, use first row as header
+        header = []
+
+        in_header = True
+        for row in sheet.rows:
+
+            if in_header:
+                in_header = False
+
+                for cell in row:
+                    cell_value = cell.value
+
+                    if cell_value is None:
+                        continue
+                    cell_value = cell_value.strip()
+                    if len(cell_value) < 1:
+                        continue
+
+                    header.append(cell_value)
+
+                break
+
+        if len(header) < 1:
+            continue
+
+        qms = ["?"]
+        column_names = []
+        columns = []
+
+        for column in header:
+            qms.append("?")
+            column_names.append('"'+column+'"')
+            columns.append({
+                "name": escape_col(column),
+                "type": "TEXT"
+            })
+
+        table_def = {
+            "columns": columns,
+            "primary_keys": []
+        }
+
+        __create_table_in_source(
+            origin_database_name = os.path.abspath(filename),
+            origin_type = "xlsx",
+            source_name = name,
+            table_def = table_def,
+            origin_table_name = "{}.{}".format(table_name, sheetname)
+        )
+
+        insert = format_insert(table_def, column_names, qms)
+
+        row_count = 1
+        in_header = True
+        for row in sheet.rows:
+
+            if in_header:
+                in_header = False
+                continue
+
+            bindings = []
+            bindings.append(row_count)
+
+            for cell in row:
+                if len(bindings) == len(qms):
+                    print "Warning: Too many columns found in row %s, ignoring additional columns." % row_count
+                    break
+
+                cell_value = cell.value
+                if cell_value is None:
+                    cell_value = u""
+                bindings.append(__value_to_unicode(cell_value))
+
+            if len(bindings) < len(qms):
+                # fill with space
+                for i in range(0, len(qms)-len(bindings)):
+                    bindings.append(u"")
+
+            try:
+                __execute(sql, insert, bindings)
+            except Exception as e:
+                print "Row["+str(row_count)+"]:", row
+                raise e
+
+            row_count += 1
 
 def __chunks (l, n):
     n = max(1, n)
