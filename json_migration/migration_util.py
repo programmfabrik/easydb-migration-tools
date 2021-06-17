@@ -24,7 +24,7 @@ def connect_to_sqlite(filename, detect_types=sqlite3.PARSE_DECLTYPES):
         print """Sqlite %s, Version: %s connected.""" % (filename, version)
         return c
     except sqlite3.OperationalError as e:
-        print "Error: Unable to open sqlite file: "+filename
+        print "Error: Unable to open sqlite file: " + filename
         raise e
 
 
@@ -160,6 +160,36 @@ def build_hierarchic_objects(output_file, hierarchy, objecttype, pool_reference=
     return count
 
 
+def apply_mapping(obj, mapping, payload, objecttype):
+    for m in mapping:
+        key = mapping[m]
+        if not m in obj:
+            continue
+        if isinstance(key, str):
+            payload[objecttype][key] = obj[m]
+        elif isinstance(key, tuple):
+            # NESTED: ("_nested", "fundorte__synonyme", "synonym")
+            if len(key) == 3 and key[0] == "_nested":
+                nested = obj[m]
+                if isinstance(nested, list):
+                    payload[objecttype][key[0] + ":" + key[1]] = [
+                        {key[2]: nested_value} for nested_value in nested
+                    ]
+            # LINK
+            elif len(key) == 4 and key[0] == "link":
+                payload[objecttype][key[1]] = {
+                    key[2]: {
+                        "lookup:_id": {
+                            key[3]: obj[m]
+                        }
+                    },
+                    "_objecttype": key[2],
+                    "_mask": "_all_fields"
+                }
+
+    return obj
+
+
 def build_objects(output_file, objects, objecttype, pool_reference=None, mapping={}, first_object=True, reference_column=None):
     count = 0
     for o in objects:
@@ -185,31 +215,49 @@ def build_objects(output_file, objects, objecttype, pool_reference=None, mapping
                 "pool": format_lookup("_id", "reference", pool_reference)
             }
 
-        for m in mapping:
-            key = mapping[m]
-            if not m in o:
-                continue
-            if isinstance(key, str):
-                payload[objecttype][key] = o[m]
-            elif isinstance(key, tuple):
-                # NESTED: ("_nested", "fundorte__synonyme", "synonym")
-                if len(key) == 3 and key[0] == "_nested":
-                    nested = o[m]
-                    if isinstance(nested, list):
-                        payload[objecttype][key[0] + ":" + key[1]] = [
-                            {key[2]: nested_value} for nested_value in nested
-                        ]
-                # LINK
-                elif len(key) == 4 and key[0] == "link":
-                    payload[objecttype][key[1]] = {
-                        key[2]: {
-                            "lookup:_id": {
-                                key[3]: o[m]
-                            }
-                        },
-                        "_objecttype": key[2],
-                        "_mask": "_all_fields"
-                    }
+        o = apply_mapping(o, mapping, payload, objecttype)
+
+        # save the object
+        if first_object:
+            first_object = False
+        else:
+            output_file.write(', ')
+
+        output_file.write(json.dumps(payload, indent=4))
+
+        count += 1
+        # print "wrote",count,"objects"
+
+    return count
+
+
+def build_object_updates(output_file, objects, objecttype, reference_column, version, pool_reference=None, mapping={}, first_object=True):
+    count = 0
+    for o in objects:
+        payload = {
+            # default fields
+            "_mask": "_all_fields",
+            "_objecttype": objecttype,
+
+            # object fields
+            objecttype: {
+                # default object fields
+                "_version": version,
+                "lookup:_id": {
+                    reference_column: o[reference_column]
+                }
+            }
+        }
+
+        # migration reference
+        payload[objecttype][reference_column] = o[reference_column]
+
+        if pool_reference is not None:
+            payload[objecttype]["_pool"] = {
+                "pool": format_lookup("_id", "reference", pool_reference)
+            }
+
+        o = apply_mapping(o, mapping, payload, objecttype)
 
         # save the object
         if first_object:
