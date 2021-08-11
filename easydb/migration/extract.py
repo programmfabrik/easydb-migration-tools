@@ -428,7 +428,7 @@ SELECT origin_id, source_table_name FROM origin WHERE
         if add_comma:
             cmd += ",\n"
 
-        cmd += """  "{0}" {1}""".format(column["name"], column["type"])
+        cmd += """  "{0}" {1}""".format(__unicode_decode(column["name"]), __unicode_decode(column["type"]))
         add_comma = True
 
     pks = table_def["primary_keys"]
@@ -580,6 +580,11 @@ def __value_to_unicode (v):
     if isinstance(v, str):
         return __str_to_unicode(v)
     return unicode(v)
+
+def __unicode_decode (v):
+    if isinstance(v, unicode):
+        return v.encode('utf-8')
+    return v
 
 def __sqlite_get_schema(conn,
                         include_tables=None,
@@ -1303,7 +1308,10 @@ def escape_col(value):
     return value.replace("\"", "")
 
 def format_insert(table_def, column_names, qms):
-    return """INSERT INTO "%s" (__source_unique_id, %s) VALUES(%s)""" % (table_def["table_name_in_source"],",".join(column_names), ",".join(qms))
+    return """INSERT INTO "%s" (__source_unique_id, %s) VALUES(%s)""" % (
+        table_def["table_name_in_source"],
+        ",".join(map(lambda c: '"%s"' % c, map(escape_col, map(__value_to_unicode, column_names)))),
+        ",".join(qms))
 
 def csv_to_source (
     name,             # name in source
