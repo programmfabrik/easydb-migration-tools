@@ -55,7 +55,7 @@ class Object(object):
     def add_value(self, js, column, value, as_nested):
         if column.kind == 'link':
             if value is not None:
-                value = list(map(lambda o: o.to_json(True) if isinstance(o, Object) else o, value))
+                value = list([o.to_json(True) if isinstance(o, Object) else o for o in value])
         elif column.kind == 'column':
             if column.column_type == 'link':
                 for c in self.objecttype.constraints:

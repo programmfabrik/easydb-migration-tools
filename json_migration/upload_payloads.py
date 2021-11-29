@@ -7,7 +7,7 @@ import requests
 import json
 import argparse
 from datetime import datetime
-import migration_util
+from . import migration_util
 
 ##################################
 #                                #
@@ -34,18 +34,18 @@ def build_path(base_path, new_part):
         return '{0}[{1}]'.format(base_path, new_part)
 
 def compare_json(actual, expected, variables = {}, path = None):
-    # print("compare_json("+str(type(actual))+" "+str(actual)+", "+str(type(expected))+" "+str(expected)+", "+str(type(variables))+" "+str(variables)+", "+str(type(path))+" "+str(path)+")")
-    if isinstance(actual, unicode):
+    # print("compare_json("+str(type(actual))+" "+str(actual)+", "+str(type(expected))+" "+str(expected)+", "+str(type(variables))+" "+str(variables)+", "+str(type(path))+" "+str(path)+")"))
+    if isinstance(actual, str):
         actual = str(actual)
-    if isinstance(expected, unicode):
+    if isinstance(expected, str):
         expected = str(expected)
-    if isinstance(path, unicode):
+    if isinstance(path, str):
         path = str(path)
 
     if isinstance(expected, dict):
         if not isinstance(actual, dict):
             raise AssertError('{0}: expecting object'.format(path))
-        for k,v in expected.items():
+        for k,v in list(expected.items()):
             required = True
             if k[0] == '$':
                 required = False
@@ -149,8 +149,8 @@ def parsed(f):
     def new_f(self, *args, **kwargs):
         r = f(self, *args, **kwargs)
         if r.status_code != 200:
-            print "ERROR:"
-            print r.text
+            print("ERROR:")
+            print(r.text)
             raise Exception('Easydb returned an error')
         return json.loads(r.text)
     return new_f
@@ -164,7 +164,7 @@ class EasydbAPI(object):
         self.auth = auth
 
     def authenticate(self, login, password):
-        print "authenticate as",login
+        print("authenticate as",login)
         session = self._get('session')
         token = parse_json(session, {'token':'$token'})['token']
         session_params = {
@@ -174,7 +174,7 @@ class EasydbAPI(object):
         }
         session = self._post('session/authenticate', params=session_params)
         self.token = parse_json(session, {'token':'$token', 'authenticated': {'method':'easydb'}})['token']
-        print "easydb-token: " + self.token
+        print("easydb-token: " + self.token)
 
     def is_authenticated(self):
         return self.token is not None
@@ -186,7 +186,7 @@ class EasydbAPI(object):
 
     @parsed
     def _get(self, what, params={}):
-#         print 'get {0} - {1}'.format(what, params)
+        # print('get {0} - {1}'.format(what, params))
         url = self.get_url(what)
         return requests.get(url, params=params, auth=self.auth)
 
@@ -198,7 +198,7 @@ class EasydbAPI(object):
     @parsed
     def _post(self, what, js=None, params={}, files=None):
         data = js_body(js) if js is not None else None
-#         print 'post {0} - {1}:\n{2}'.format(what, params, data)
+        # print('post {0} - {1}:\n{2}'.format(what, params, data))
         url = self.get_url(what)
         headers = js_header() if not files else None
         return requests.post(url, params=params, data=data, headers=headers, files=files, auth=self.auth)
@@ -259,7 +259,7 @@ def put_to_easydb(api, url, api_path, payload, login = "root", pw = "admin"):
 
 def request_to_easydb(api, url, api_path, payload = "", method = "GET", login = "root", pw = "admin"):
     try:
-        print "API URL: " + url + "/api/v1/" + api_path
+        print("API URL: " + url + "/api/v1/" + api_path)
 
         if method.upper() == "PUT":
             r = api.put(api_path, payload)
@@ -268,11 +268,11 @@ def request_to_easydb(api, url, api_path, payload = "", method = "GET", login = 
         elif method.upper() == "POST":
             r = api.post(api_path, payload)
         else:
-            print method,"NOT SUPPORTED"
+            print(method,"NOT SUPPORTED")
 
         return r
     except Exception as e:
-        print "REQUEST ERROR!\n  "+str(e)
+        print("REQUEST ERROR!\n  "+str(e))
         return None
 
 
@@ -291,7 +291,7 @@ def generate_payload(data):
 
 def upload(api_path, payload, serveraddress, method = "POST", login = "root", pw = "admin"):
     api = EasydbAPI(serveraddress)
-    # print "PAYLOAD:",payload
+    # print("PAYLOAD:",payload)
     api.authenticate(login, pw)
     if method == "POST":
         post_to_easydb(api, serveraddress, api_path, payload)
@@ -321,13 +321,13 @@ if path[-1] != '/':
     path += '/'
 
 manifest = json.loads(open(path + args.manifest).read())
-print "MANIFEST:",json.dumps(manifest, indent = 4)
+print("MANIFEST:",json.dumps(manifest, indent = 4))
 
 batch_size = manifest['batch_size']
 
 payloadoffset = int(args.payloadoffset)
 if payloadoffset >= len(manifest["payloads"]):
-    print "Payloadoffset must be <",len(manifest["payloads"])
+    print("Payloadoffset must be <",len(manifest["payloads"]))
     exit()
 if payloadoffset < 0:
     payloadoffset = 0
@@ -336,8 +336,8 @@ payloadlimit = int(args.payloadlimit)
 if payloadlimit < 0:
     payloadlimit = 0
 
-print "Payload Offset:",payloadoffset
-print "Payload Limit:",payloadlimit
+print("Payload Offset:",payloadoffset)
+print("Payload Limit:",payloadlimit)
 
 last_uploaded_payload = None
 try:
@@ -348,14 +348,14 @@ try:
 
         payload = json.loads(open(path + p).read())
 
-        print "[",n,"]"
+        print("[",n,"]")
         n += 1
-        print "Payload from File",path + p
+        print("Payload from File",path + p)
 
         import_type = "objects"
         if "import_type" in payload:
             import_type = payload["import_type"]
-        print "import_type:",import_type
+        print("import_type:",import_type)
         payload = payload[migration_util.import_type_array_map[import_type][0]]
 
         api_path = None
@@ -364,7 +364,7 @@ try:
         else:
             api_path = import_type + "/"
 
-        print "API path:",api_path
+        print("API path:",api_path)
 
         if import_type in ["collection"]:
             # each object in array seperately
@@ -390,12 +390,12 @@ try:
 
         if payloadlimit > 0:
             if n - payloadoffset >= payloadlimit:
-                print "Payload Limit of",payloadlimit,"reached, stopping upload"
+                print("Payload Limit of",payloadlimit,"reached, stopping upload")
                 break
 
-    print "DONE, all payloads uploaded"
+    print("DONE, all payloads uploaded")
 
 except KeyboardInterrupt as e:
-    print "Upload was cancelled by user"
+    print("Upload was cancelled by user")
     if last_uploaded_payload is not None:
-        print "last successfully uploaded payload:",last_uploaded_payload
+        print("last successfully uploaded payload:",last_uploaded_payload)

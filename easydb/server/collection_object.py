@@ -33,7 +33,7 @@ class Collection_Object(object):
     def from_row(row):
         collection_object = Collection_Object()
 
-        for key, value in row.items():
+        for key, value in list(row.items()):
             if key == '__source_unique_id':
                 collection_object.source_id = value
             if key == 'collection_id':

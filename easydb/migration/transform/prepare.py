@@ -192,7 +192,7 @@ class DestinationSchema(object):
         self.db_schema.tables.append(table_def)
 
     def _load_objecttypes(self):
-        for ot in self.ez_schema.objecttypes.values():
+        for ot in list(self.ez_schema.objecttypes.values()):
             self._load_objecttype(ot)
 
     def _load_objecttype(self, ot):
@@ -213,7 +213,7 @@ class DestinationSchema(object):
             table_def.constraints.append(easydb.server.datamodel.ForeignKeyConstraintDefinition(['__uplink_id'], ot.owned_by, ['__source_unique_id'], True))
         if ot.has_tags:
             self.db_schema.tables.append(self._tag_table(ot.name))
-        for ez_column in ot.columns.values():
+        for ez_column in list(ot.columns.values()):
             self._load_column(table_def, ot, ez_column)
 
         for c in table_def.constraints:

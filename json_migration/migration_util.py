@@ -4,7 +4,7 @@ import json
 import sqlite3
 import hashlib
 from datetime import datetime
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 
 import_type_array_map = {
@@ -21,10 +21,10 @@ def connect_to_sqlite(filename, detect_types=sqlite3.PARSE_DECLTYPES):
     try:
         c = sqlite3.connect(filename, detect_types)
         version = c.execute("""SELECT sqlite_version()""").fetchone()[0]
-        print """Sqlite %s, Version: %s connected.""" % (filename, version)
+        print("""Sqlite %s, Version: %s connected.""" % (filename, version))
         return c
     except sqlite3.OperationalError as e:
-        print "Error: Unable to open sqlite file: " + filename
+        print("Error: Unable to open sqlite file: " + filename)
         raise e
 
 
@@ -34,9 +34,9 @@ def commit(con, close=False):
             con.commit()
             if close:
                 con.close()
-                print "closed connection"
+                print("closed connection")
     except Exception as e:
-        print "Error: Unable to commit: ", e
+        print("Error: Unable to commit: ", e)
 
 # helper methods
 
@@ -226,7 +226,7 @@ def build_objects(output_file, objects, objecttype, pool_reference=None, mapping
         output_file.write(json.dumps(payload, indent=4))
 
         count += 1
-        # print "wrote",count,"objects"
+        # print("wrote",count,"objects")
 
     return count
 
@@ -268,7 +268,7 @@ def build_object_updates(output_file, objects, objecttype, reference_column, ver
         output_file.write(json.dumps(payload, indent=4))
 
         count += 1
-        # print "wrote",count,"objects"
+        # print("wrote",count,"objects")
 
     return count
 
@@ -287,28 +287,28 @@ def save_batch(payload, folder, filename, importtype, manifest, objecttype=None)
 
     manifest["payloads"].append(filename)
     if objecttype is None:
-        print "saved importtype", importtype, "as", filename
+        print("saved importtype", importtype, "as", filename)
     else:
-        print "saved objecttype", objecttype, "as", filename
+        print("saved objecttype", objecttype, "as", filename)
     return manifest
 
 
 def check_image_url_reachable(url, verbose=False):
     try:
-        request = urllib2.Request(url)
+        request = urllib.request.Request(url)
         request.get_method = lambda: 'HEAD'
-        response = urllib2.urlopen(request)
+        response = urllib.request.urlopen(request)
         if response.getcode() == 200:
             if verbose:
-                print "URL", url, "reachable"
+                print("URL", url, "reachable")
             return True
         else:
-            print "URL", url, "unreachable, Code:", response.getcode()
+            print("URL", url, "unreachable, Code:", response.getcode())
             if verbose:
-                print response.info()
+                print(response.info())
             return False
     except Exception as e:
-        print "URL", url, "unreachable, Error:", e
+        print("URL", url, "unreachable, Error:", e)
         return False
 
 
@@ -323,7 +323,7 @@ def write_header(filename, objecttype, import_type="db"):
         "objects": [
     """ % (import_type, objecttype))
     output_file.close()
-    # print "wrote header"
+    # print("wrote header")
 
 
 def write_footer(filename):
@@ -333,14 +333,14 @@ def write_footer(filename):
     }
     """)
     output_file.close()
-    # print "wrote footer"
+    # print("wrote footer")
 
 
 # save hierarchic objects
 
 def write_payload_hierarchic_objects(output_filename, hierarchy, objecttype, pool_reference=None, mapping={}, reference_column="reference"):
 
-    print "Output File:", output_filename
+    print("Output File:", output_filename)
 
     write_header(output_filename, objecttype)
 
@@ -355,14 +355,14 @@ def write_payload_hierarchic_objects(output_filename, hierarchy, objecttype, poo
         reference_column=reference_column
     )
     output_file.close()
-    # print "wrote", object_count, "objects"
+    # print("wrote", object_count, "objects")
 
     write_footer(output_filename)
 
 
 def write_payload_list_objects(output_filename, objects, objecttype, pool_reference=None, mapping={}, reference_column="reference"):
 
-    print "Output File:", output_filename
+    print("Output File:", output_filename)
 
     write_header(output_filename, objecttype)
 
@@ -377,7 +377,7 @@ def write_payload_list_objects(output_filename, objects, objecttype, pool_refere
         reference_column=reference_column
     )
     output_file.close()
-    # print "wrote", object_count, "objects"
+    # print("wrote", object_count, "objects")
 
     write_footer(output_filename)
 
@@ -395,9 +395,9 @@ def format_lookup(key, ref_column, ref_value, only_inner=False):
 
 def execute_statement(cursor, sql, connection=None, params=[], commit=False, close_connection=False, verbose=False):
     if verbose:
-        print "SQL:", sql.strip()
+        print("SQL:", sql.strip())
         if len(params) > 0:
-            print "Parameters:", ", ".join([str(p) for p in params])
+            print("Parameters:", ", ".join([str(p) for p in params]))
 
     t_sql_start = datetime.now()
     res = cursor.execute(sql, params)
@@ -405,7 +405,7 @@ def execute_statement(cursor, sql, connection=None, params=[], commit=False, clo
 
     if commit and connection is not None:
         if verbose:
-            print "Closing connection"
+            print("Closing connection")
         __commit(connection, close_connection)
 
     return rows
@@ -449,10 +449,10 @@ def build_nested_entry_for_dante(nested_name, dante_uri, dante_name, plugin_name
 
 def insert_field_into_object(objecttype, field_name, field_value, obj):
     if objecttype not in obj:
-        # print "objecttype",objecttype,"not found in object!"
+        # print("objecttype",objecttype,"not found in object!")
         return obj
     if field_name in obj[objecttype]:
-        # print "field",objecttype+"."+field_name,"already in object!"
+        # print("field",objecttype+"."+field_name,"already in object!")
         return obj
     obj[objecttype][field_name] = field_value
     return obj
@@ -476,7 +476,7 @@ def breadth_first_batches(objects, objecttype, batches, parent_key="lookup:_id_p
                     sorted_objects.append(o)
     if len(sorted_objects) > 0:
         batches.append(sorted_objects)
-        print "collected", len(sorted_objects), "in the current depth"
+        print("collected", len(sorted_objects), "in the current depth")
     if len(parent_lookups) > 0:
         breadth_first_batches(objects, objecttype, batches,
                               parent_key, parent_lookups, reference_column)
@@ -513,7 +513,7 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
             write_footer(path + batch_filename)
 
             manifest["payloads"].append(batch_filename)
-            print "saved batch", depth, "as", batch_filename
+            print("saved batch", depth, "as", batch_filename)
 
             depth += 1
 
@@ -548,7 +548,7 @@ def convert_hierarchy_to_batches(path, filename, objecttype, manifest, reference
                     batch += 1
 
                     manifest["payloads"].append(batch_filename)
-                    print "saved batch", depth, batch, "as", batch_filename
+                    print("saved batch", depth, batch, "as", batch_filename)
 
             depth += 1
 
@@ -564,5 +564,5 @@ def export_basetype(basetype, folder, manifest, objects):
     }, indent=4))
     f.close()
     manifest["payloads"].append(filename)
-    print "saved basetype", basetype, "as", filename
+    print("saved basetype", basetype, "as", filename)
     return manifest

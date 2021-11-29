@@ -19,7 +19,7 @@ class FixValues(RowTransformation):
     def __str__(self):
         return 'fix-values'
     def transform(self, row):
-        for key, value in self.fix_values.items():
+        for key, value in list(self.fix_values.items()):
             row[key] = value
         return row
 

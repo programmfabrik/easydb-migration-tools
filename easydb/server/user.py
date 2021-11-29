@@ -45,7 +45,7 @@ class User(object):
                 'frontend_prefs': self.frontend_prefs,
                 'login_disabled': self.login_disabled
             },
-            '_groups': list(map(lambda gid: { 'group': {'_id': int(gid)} }, self.groups))
+            '_groups': list([{ 'group': {'_id': int(gid)} } for gid in self.groups])
         }
         if self.email is not None:
             js["_emails"] = [
@@ -67,7 +67,7 @@ class User(object):
     @staticmethod
     def from_rows(row, group_rows):
         user = User()
-        for key, value in row.items():
+        for key, value in list(row.items()):
             if key == 'last_name':
                 user.last_name = value
             elif key == 'first_name':

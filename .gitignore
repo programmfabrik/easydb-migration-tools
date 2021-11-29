@@ -7,3 +7,4 @@ build-stamp-*
 \#*\#
 commit.txt
 *.pyc
+**/__pycache__*/

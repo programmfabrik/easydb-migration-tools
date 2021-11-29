@@ -28,7 +28,7 @@ class Group(object):
     @staticmethod
     def from_row(row):
         group = Group()
-        for key, value in row.items():
+        for key, value in list(row.items()):
             if key.startswith('displayname:'):
                 group.displayname[key.split(':')[1]] = value
             elif key == 'comment':

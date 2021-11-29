@@ -26,16 +26,14 @@ asset_types = ['data', 'filename', 'url']
 
 # public
 
-class Extractor(object):
-    __metaclass__ = abc.ABCMeta
+class Extractor(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def extract(self):
         return None
     def __str__(self):
         return 'Extractor'
 
-class RowTransformation(object):
-    __metaclass__ = abc.ABCMeta
+class RowTransformation(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def transform(self, row):
         return None
@@ -141,8 +139,8 @@ def process(db, source, destination, extractor, destination_table, row_transform
         raise easydb.migration.transform.common.MigrationStop()
 
 def process_batch(batch, db, source, destination_table, asset_columns, stop_on_error, p):
-    source_ids = batch.keys()
-    source_ids_str = '\',\n\t\''.join(map(lambda x: x.replace("'", "''"), source_ids))
+    source_ids = list(batch.keys())
+    source_ids_str = '\',\n\t\''.join([x.replace("'", "''") for x in source_ids])
     check_sql = SQL_check_if_exists.format(destination_table, source_ids_str)
     check_rows = db.execute(check_sql)
     update_ids = set()
@@ -166,7 +164,7 @@ def process_batch(batch, db, source, destination_table, asset_columns, stop_on_e
     success = True
     logger.info('{} insert/update {} objects'.format(p, len(batch)))
     try:
-        for source_id, row in batch.items():
+        for source_id, row in list(batch.items()):
             try:
                 file_table_id = source_id
                 if '__file_table_id' in row:
@@ -245,7 +243,7 @@ def process_assets(db, source, asset_column, file_table_id, source_id, stop_on_e
 
 def build_asset_list(assets):
     first_asset_id = None
-    for asset_id, asset in assets.items():
+    for asset_id, asset in list(assets.items()):
         if asset['parent'] is None or asset['parent'] not in assets:
             first_asset_id = asset_id
             break
