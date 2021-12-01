@@ -26,7 +26,7 @@ ERROR_LOG_FILE = 'error.log'
 INFO_LOG_FILE = 'info.log'
 
 
-def append_to_logfile(logfile: str, s: str, timestamp=datetime.now()):
+def append_to_logfile(logfile: str, s: str, timestamp: datetime = None):
     """
     append_to_logfile append line with timestamp to the logfile
 
@@ -34,9 +34,11 @@ def append_to_logfile(logfile: str, s: str, timestamp=datetime.now()):
     :type logfile: str
     :param s: line with log message
     :type s: str
-    :param timestamp: timestamp, defaults to datetime.now()
+    :param timestamp: timestamp, defaults to None, will then be set to datetime.now()
     :type timestamp: datetime, optional
     """
+    if timestamp is None:
+        timestamp = datetime.now()
     with open(logfile, 'a') as log:
         log.writelines([
             '\n',

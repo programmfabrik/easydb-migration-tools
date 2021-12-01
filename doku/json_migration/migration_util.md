@@ -200,7 +200,7 @@ save_payloads save objects as json files, add payload names to manifest
 
 
 
-### migration_util.append_to_logfile(logfile, s, timestamp=datetime.datetime(2021, 12, 1, 15, 25, 29, 71873))
+### migration_util.append_to_logfile(logfile, s, timestamp=None)
 append_to_logfile append line with timestamp to the logfile
 
 
@@ -213,7 +213,7 @@ append_to_logfile append line with timestamp to the logfile
     * **s** (*str*) – line with log message
 
 
-    * **timestamp** (*datetime**, **optional*) – timestamp, defaults to datetime.now()
+    * **timestamp** (*datetime**, **optional*) – timestamp, defaults to None, will then be set to datetime.now()
 
 
 
