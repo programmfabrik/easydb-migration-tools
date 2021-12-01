@@ -8,3 +8,4 @@ build-stamp-*
 commit.txt
 *.pyc
 **/__pycache__*/
+**/_docs_sphinx*/

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # coding=utf8
 
 
@@ -6,8 +6,7 @@ import urllib3
 import requests
 import json
 import argparse
-from datetime import datetime
-from . import migration_util
+import migration_util
 
 ##################################
 #                                #

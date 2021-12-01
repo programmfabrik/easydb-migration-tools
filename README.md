@@ -17,3 +17,15 @@ with the data gathered from different origin systems.
 
 The module easydb.migration.transform offers diverse extraction and transformation tools to build a "destination",
 which is an SQLite database, and fill it with the data processed from the "source".
+
+## data2sqlite
+
+Script to convert different file sources to a sqlite3 database file.
+
+See [Documentation](data2sqlite.md)
+
+## json_migration
+
+Collection of tools that help with generating payloads for the json importer (https://docs.easydb.de/en/tutorials/jsonimport).
+
+See [Generated Code Documentation](doku/json_migration/index.md)
