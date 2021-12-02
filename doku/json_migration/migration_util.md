@@ -243,6 +243,32 @@ check_image_url_reachable check if the given URL is reachable
 
 
 
+### migration_util.clean_html(v, first=True)
+clean_html remove everything between html tags (< >), parse and replace html tags if possible
+
+
+* **Parameters**
+
+    
+    * **v** (*str*) – text to clean
+
+
+    * **first** (*bool**, **optional*) – for multiple passes, is False in all later passes, defaults to True
+
+
+
+* **Returns**
+
+    cleaned text
+
+
+
+* **Return type**
+
+    str
+
+
+
 ### migration_util.datetime_to_date(d)
 datetime_to_iso format datetime object with easydb5 iso format ‘%Y-%m-%d’
 
@@ -457,6 +483,28 @@ print_traceback print traceback of given exception
 * **Return type**
 
     list of strings
+
+
+
+### migration_util.remove_xml_comments(v)
+remove_xml_comments remove everything between xml comments (<!– –>)
+
+
+* **Parameters**
+
+    **v** (*str*) – text to clean
+
+
+
+* **Returns**
+
+    cleaned text
+
+
+
+* **Return type**
+
+    str
 
 
 

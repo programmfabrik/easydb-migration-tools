@@ -7,6 +7,7 @@ import hashlib
 from datetime import datetime, timedelta
 import urllib.request
 import traceback
+from six.moves.html_parser import HTMLParser
 
 
 import_type_array_map = {
@@ -145,6 +146,83 @@ def percentage(n: int, total: int):
     if total > 0 and n > 0:
         p = int((float(n) / float(total)) * 100.0)
     return '| %d / %d (%d%%)' % (n, total, p)
+
+
+# -----------------------------
+# convert and clean text with html tags
+
+html_tags = {
+    u'<br>': u'\n',
+    u'<br/>': u'\n',
+    u'<br />': u'\n',
+}
+
+
+def remove_xml_comments(v: str):
+    """
+    remove_xml_comments remove everything between xml comments (<!-- -->)
+
+    :param v: text to clean
+    :type v: str
+    :return: cleaned text
+    :rtype: str
+    """
+    com_start = '<!--'
+    com_end = '-->'
+
+    while com_start in v:
+        res = ''
+        ind1 = v.find(com_start)
+        ind2 = v.find(com_end)
+
+        if ind2 > ind1:
+            res += v[:ind1]
+            res += v[ind2 + len(com_end):]
+
+        v = res
+
+    return v
+
+
+def clean_html(v: str, first: bool = True):
+    """
+    clean_html remove everything between html tags (< >), parse and replace html tags if possible
+
+    :param v: text to clean
+    :type v: str
+    :param first: for multiple passes, is False in all later passes, defaults to True
+    :type first: bool, optional
+    :return: cleaned text
+    :rtype: str
+    """
+    if v is None:
+        return None
+    if len(v) < 1:
+        return None
+
+    v = remove_xml_comments(v)
+
+    for t in html_tags:
+        v = v.replace(t, html_tags[t])
+
+    text_between_brackets = []
+    for s in v.split('<'):
+        text_between_brackets.append(s.split('>')[-1])
+    res = ''.join(text_between_brackets)
+
+    if len(res) < 1:
+        return None
+
+    h = HTMLParser()
+    res = h.unescape(res)
+
+    if first:
+        return clean_html(res, False)
+
+    while '  ' in res:
+        res = res.replace('  ', ' ')
+
+    return res.strip()
 
 
 # -----------------------------
