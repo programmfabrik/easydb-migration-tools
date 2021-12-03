@@ -1723,7 +1723,7 @@ def xml_to_source(
     p.EndCdataSectionHandler = end_cdata
     p.CharacterDataHandler = char_data
 
-    filepath = filename[len(basedir)+1:]
+    filepath = filename[len(basedir):]
     xml_filename = os.path.basename(filename)
 
     start_element(filepath, {
