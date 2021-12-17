@@ -27,39 +27,67 @@ empty_db_payload wrapper with empty payload with import_type ‘db’
 
 * **Returns**
 
-    payload object
+    payload object and key of the array with objects
 
 
 
 * **Return type**
 
-    dict
+    dict, str
 
 
 
-#### classmethod empty_payload(import_type, obj_key='objects')
+#### classmethod empty_payload(import_type)
 empty_payload create an empty payload object
 
 
 * **Parameters**
 
-    
-    * **import_type** (*str*) – value for import_type key
+    **import_type** (*str*) – value for import_type key
 
 
-    * **obj_key** (*str**, **optional*) – key for array with objects, defaults to ‘objects’
+
+* **Raises**
+
+    **Exception** – Exception if the import_type is unknown
 
 
 
 * **Returns**
 
-    payload object
+    payload object and key of the array with objects
 
 
 
 * **Return type**
 
-    dict
+    dict, str
+
+
+
+#### export_object_exists(objecttype, ref)
+export_object_exists check if an object exists in the map of objects that will be exported
+
+
+* **Parameters**
+
+    
+    * **objecttype** (*str*) – objecttype of the object
+
+
+    * **ref** (*str*) – reference of the object
+
+
+
+* **Returns**
+
+    True if the object exists, else False
+
+
+
+* **Return type**
+
+    bool
 
 
 
@@ -435,7 +463,7 @@ log_error append values as new line to error log file
 
 
 ### migration_util.log_info(\*strings)
-log_error append values as new line to info log file
+log_info append values as new line to info log file
 
 
 ### migration_util.percentage(n, total)

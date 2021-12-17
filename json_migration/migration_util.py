@@ -105,7 +105,7 @@ def log_error(*strings):
 
 def log_info(*strings):
     """
-    log_error append values as new line to info log file
+    log_info append values as new line to info log file
     """
     timestamp = datetime.now()
     s = format_string_list(strings)
@@ -532,21 +532,26 @@ class ObjectPayloadManager(object):
         self.export_objects = {}
 
     @classmethod
-    def empty_payload(cls, import_type: str, obj_key: str = 'objects'):
+    def empty_payload(cls, import_type: str):
         """
         empty_payload create an empty payload object
 
         :param import_type: value for import_type key
         :type import_type: str
-        :param obj_key: key for array with objects, defaults to 'objects'
-        :type obj_key: str, optional
-        :return: payload object
-        :rtype: dict
+        :raises Exception: Exception if the import_type is unknown
+        :return: payload object and key of the array with objects
+        :rtype: dict, str
         """
+
+        if not import_type in import_type_array_map:
+            raise Exception('unknown import_type %s' % (import_type))
+
+        obj_key = import_type_array_map[import_type][0]
+
         return {
             'import_type': import_type,
             obj_key: []
-        }
+        }, obj_key
 
     @classmethod
     def empty_db_payload(cls, objecttype: str):
@@ -555,12 +560,12 @@ class ObjectPayloadManager(object):
 
         :param objecttype: objecttype
         :type objecttype: str
-        :return: payload object
-        :rtype: dict
+        :return: payload object and key of the array with objects
+        :rtype: dict, str
         """
-        payload = cls.empty_payload('db')
+        payload, obj_key = cls.empty_payload('db')
         payload['objecttype'] = objecttype
-        return payload
+        return payload, obj_key
 
     def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int):
         """
@@ -735,6 +740,21 @@ class ObjectPayloadManager(object):
 
         return 0
 
+    def export_object_exists(self, objecttype: str, ref: str):
+        """
+        export_object_exists check if an object exists in the map of objects that will be exported
+
+        :param objecttype: objecttype of the object
+        :type objecttype: str
+        :param ref: reference of the object
+        :type ref: str
+        :return: True if the object exists, else False
+        :rtype: bool
+        """
+        if not objecttype in self.export_objects:
+            return False
+        return ref in self.export_objects[objecttype]
+
     @classmethod
     def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None):
         """
@@ -762,7 +782,7 @@ class ObjectPayloadManager(object):
         if objecttype is not None:
             data['objecttype'] = objecttype
 
-        f = open(outputfolder + filename, 'w')
+        f = open('%s/%s' % (outputfolder, filename), 'w')
         f.write(dumpjs(data))
         f.close()
 
