@@ -427,6 +427,13 @@ def to_easydb_date_object(d: str):
     :return: easydb5 date object
     :rtype: dict
     """
+
+    if d is None:
+        return None
+
+    if len(d) < 1:
+        return None
+
     return {
         'value': d
     }
@@ -843,8 +850,6 @@ class ObjectPayloadManager(object):
         if parent_key is not None:
             # insert the reference of the hierarchical object into the tree structure
             if not self.insert_object_ref_into_hierarchie(obj, objecttype, ref, ref_col, parent_key):
-                print(json.dumps(obj, indent=4))
-                exit(1)
                 return 0
 
         if objecttype not in self.export_objects:
@@ -903,6 +908,36 @@ class ObjectPayloadManager(object):
         if not objecttype in self.export_objects:
             return False
         return ref in self.export_objects[objecttype]
+
+    def get_export_object(self, objecttype: str, ref: str):
+        """
+        get_export_object returns an object if it exists in the map of objects that will be exported
+
+        :param objecttype: objecttype of the object
+        :type objecttype: str
+        :param ref: reference of the object
+        :type ref: str
+        :return: object if it exists, else None
+        :rtype: dict
+        """
+        if not self.export_object_exists(objecttype, ref):
+            return None
+
+        return self.export_objects[objecttype][ref]
+
+    def update_object(self, objecttype, ref, obj):
+        """
+        update_object updates the object with the given ref with the given object (if it exists)
+
+        :param objecttype: objecttype of the object
+        :type objecttype: str
+        :param ref: reference of the object
+        :type ref: str
+        :param obj: object the replaces the existing object
+        :type obj: dict
+        """
+
+        self.export_objects[objecttype][ref] = obj
 
     @classmethod
     def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None):
