@@ -575,7 +575,7 @@ class ObjectPayloadManager(object):
         payload['objecttype'] = objecttype
         return payload, obj_key
 
-    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, is_hierarchical: bool = False):
+    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, batchnumber: int = 0, is_hierarchical: bool = False):
         """
         save_payloads save objects as json files, add payload names to manifest
 
@@ -589,6 +589,8 @@ class ObjectPayloadManager(object):
         :type ref_col: str
         :param batchsize: maximal number of objects per json file
         :type batchsize: int
+        :param batchnumber: optional number of the current batch, in case the objects have to be deleted between batches for performance reasons, defaults to 0. If it is <1, this value will be ignored. This will not work for hierarchical objects
+        :type batchnumber: int, optional
         :param is_hierarchical: objecttype is hierarchical, defaults to False
         :type is_hierarchical: bool, optional
         :return: manifest
@@ -622,7 +624,7 @@ class ObjectPayloadManager(object):
                 break
 
             filename = 'db__%s__batch_%04d__size_%04d.json' % (objecttype,
-                                                               batch,
+                                                               batch if batchnumber < 1 else batchnumber,
                                                                size)
             manifest = self.save_batch(
                 objects,
@@ -938,6 +940,30 @@ class ObjectPayloadManager(object):
         """
 
         self.export_objects[objecttype][ref] = obj
+
+    def delete_object(self, objecttype, ref):
+        """
+        delete_object deletes the object with the given ref with the given objecttype (if it exists)
+
+        :param objecttype: objecttype of the object
+        :type objecttype: str
+        :param ref: reference of the object
+        :type ref: str
+        """
+
+        if self.export_object_exists(objecttype, ref):
+            del self.export_objects[objecttype][ref]
+
+    def delete_objects_by_objecttype(self, objecttype):
+        """
+        delete_objects_by_objecttype deletes all objects of the given objecttype if any exist
+
+        :param objecttype: objecttype of the objects to delete
+        :type objecttype: str
+        """
+
+        if objecttype in self.export_objects:
+            self.export_objects[objecttype] = {}
 
     @classmethod
     def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None):
