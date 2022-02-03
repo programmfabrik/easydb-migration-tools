@@ -575,7 +575,7 @@ class ObjectPayloadManager(object):
         payload['objecttype'] = objecttype
         return payload, obj_key
 
-    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, batchnumber: int = 0, is_hierarchical: bool = False):
+    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], batchnumber: int = 0, is_hierarchical: bool = False, version: int = 1):
         """
         save_payloads save objects as json files, add payload names to manifest
 
@@ -589,10 +589,14 @@ class ObjectPayloadManager(object):
         :type ref_col: str
         :param batchsize: maximal number of objects per json file
         :type batchsize: int
+        :param refs: only export these refs if this array is not empty, defaults to []
+        :type refs: list, optional
         :param batchnumber: optional number of the current batch, in case the objects have to be deleted between batches for performance reasons, defaults to 0. If it is <1, this value will be ignored. This will not work for hierarchical objects
         :type batchnumber: int, optional
         :param is_hierarchical: objecttype is hierarchical, defaults to False
         :type is_hierarchical: bool, optional
+        :param version: version of exported objects, defaults to 1
+        :type version: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -605,14 +609,32 @@ class ObjectPayloadManager(object):
                 manifest,
                 outputfolder,
                 objecttype,
-                batchsize)
+                ref_col,
+                batchsize,
+                refs,
+                version)
 
-        all_objects = list(self.export_objects[objecttype].values())
-        all_objects.sort(key=lambda x: x[objecttype][ref_col])
+        all_objects = []
+        for obj in self.export_objects[objecttype].values():
+            if not objecttype in obj:
+                continue
+
+            if len(refs) > 0:
+                if not ref_col in obj[objecttype]:
+                    continue
+                if obj[objecttype][ref_col] not in refs:
+                    continue
+
+            if not '_version' in obj[objecttype]:
+                continue
+            if obj[objecttype]['_version'] != version:
+                continue
+
+            all_objects.append(obj)
 
         offset = 0
         batch = 1
-        has_more = True
+        has_more = len(all_objects) > 0
 
         while has_more:
 
@@ -623,9 +645,11 @@ class ObjectPayloadManager(object):
             if size < 1:
                 break
 
-            filename = 'db__%s__batch_%04d__size_%04d.json' % (objecttype,
-                                                               batch if batchnumber < 1 else batchnumber,
-                                                               size)
+            filename = 'db__v%d__%s__batch_%04d__size_%04d.json' % (version,
+                                                                    objecttype,
+                                                                    batch if batchnumber < 1 else batchnumber,
+                                                                    size)
+
             manifest = self.save_batch(
                 objects,
                 outputfolder + '/',
@@ -639,7 +663,7 @@ class ObjectPayloadManager(object):
 
         return manifest
 
-    def save_hierarchical_payloads(self, manifest: dict, outputfolder: str, objecttype: str, batchsize: int):
+    def save_hierarchical_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], version: int = 1):
         """
         save_hierarchical_payloads save objects as json files, add payload names to manifest
 
@@ -649,8 +673,14 @@ class ObjectPayloadManager(object):
         :type outputfolder: str
         :param objecttype: objecttype
         :type objecttype: str
+        :param ref_col: name of the reference column, must be in the object
+        :type ref_col: str
         :param batchsize: maximal number of objects per json file
         :type batchsize: int
+        :param refs: only export these refs if this array is not empty, defaults to []
+        :type refs: list, optional
+        :param version: version of exported objects, defaults to 1
+        :type version: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -663,15 +693,31 @@ class ObjectPayloadManager(object):
 
         for level in objects_tree:
 
-            all_objects = [
-                self.export_objects[objecttype][ref]
-                for ref in objects_tree[level]
-                if self.export_object_exists(objecttype, ref)
-            ]
+            all_objects = []
+            for ref in objects_tree[level]:
+                if ref not in self.export_objects[objecttype]:
+                    continue
+
+                obj = self.export_objects[objecttype][ref]
+                if not objecttype in obj:
+                    continue
+
+                if len(refs) > 0:
+                    if not ref_col in obj[objecttype]:
+                        continue
+                    if obj[objecttype][ref_col] not in refs:
+                        continue
+
+                if not '_version' in obj[objecttype]:
+                    continue
+                if obj[objecttype]['_version'] != version:
+                    continue
+
+                all_objects.append(obj)
 
             offset = 0
             batch = 1
-            has_more = True
+            has_more = len(all_objects) > 0
 
             while has_more:
 
@@ -682,10 +728,11 @@ class ObjectPayloadManager(object):
                 if size < 1:
                     break
 
-                filename = 'db__%s__level_%02d__batch_%04d__size_%04d.json' % (objecttype,
-                                                                               int(level),
-                                                                               batch,
-                                                                               size)
+                filename = 'db__v%d__%s__level_%02d__batch_%04d__size_%04d.json' % (version,
+                                                                                    objecttype,
+                                                                                    int(level),
+                                                                                    batch,
+                                                                                    size)
                 manifest = self.save_batch(
                     objects,
                     outputfolder + '/',
@@ -726,8 +773,8 @@ class ObjectPayloadManager(object):
             tree_levels[level_key] = []
 
         for leaf in hierarchie_list[parent]:
-            # if leaf not in hierarchie_list:
-            #     continue
+            if leaf in tree_levels[level_key]:
+                continue
 
             tree_levels[level_key].append(leaf)
 
@@ -752,8 +799,8 @@ class ObjectPayloadManager(object):
         :param top_level: for recursive call of function, defaults to True
         :type top_level: bool, optional
         :raises Exception: Exception with information if merging failed
-        :return: the merged object
-        :rtype: dict
+        :return: the merged object and if the object has been changed
+        :rtype: dict, bool
         """
         if top_level:
             if not '_objecttype' in new_obj:
@@ -776,11 +823,12 @@ class ObjectPayloadManager(object):
                 raise Exception(
                     'could not merge objects: %s missing in old obj' % old_objecttype)
 
-            old_obj[objecttype] = cls.merge_object(new_obj[objecttype],
-                                                   old_obj[old_objecttype],
-                                                   top_level=False)
-            return old_obj
+            old_obj[objecttype], updated = cls.merge_object(new_obj[objecttype],
+                                                            old_obj[old_objecttype],
+                                                            top_level=False)
+            return old_obj, updated
 
+        updated = False
         obj = {}
         for obj_key in old_obj:
             obj[obj_key] = old_obj[obj_key]
@@ -788,21 +836,31 @@ class ObjectPayloadManager(object):
         for obj_key in new_obj:
             new_v = new_obj[obj_key]
 
+            if obj_key in ['_version', 'lookup:_id']:
+                # if only the version or id lookup was changed/added, the object is not considered as updated
+                obj[obj_key] = new_v
+                continue
+
             if obj_key not in old_obj:
                 obj[obj_key] = new_v
+                updated = True
                 continue
 
             old_v = old_obj[obj_key]
 
             if old_v is None:
-                obj[obj_key] = new_v
+                if obj[obj_key] != old_v:
+                    obj[obj_key] = new_v
+                    updated = True
                 continue
 
             if isinstance(new_v, dict) and isinstance(old_v, dict):
-                obj[obj_key] = cls.merge_object(
+                obj[obj_key], _updated = cls.merge_object(
                     new_v,
                     old_v,
                     top_level=False)
+                if _updated:
+                    updated = True
                 continue
 
             if isinstance(new_v, list) and isinstance(old_v, list):
@@ -813,11 +871,12 @@ class ObjectPayloadManager(object):
                     if o in result_array:
                         continue
                     result_array.append(o)
+                    updated = True
 
                 obj[obj_key] = result_array
                 continue
 
-        return obj
+        return obj, updated
 
     def merge_export_object(self, objecttype: str, ref_col: str, obj: dict, parent_key: str = None):
         """
@@ -837,22 +896,22 @@ class ObjectPayloadManager(object):
         if not objecttype in obj:
             log_error(
                 'merge_export_object: invalid object: given objecttype %s not in object' % (objecttype))
-            return 0
+            return 0, False
         if not ref_col in obj[objecttype]:
             log_error('merge_export_object: invalid object: given reference field %s not in object.%s' % (
                 ref_col, objecttype))
-            return 0
+            return 0, False
 
         ref = obj[objecttype][ref_col]
         if ref is None:
             log_error('merge_export_object: invalid object: given reference field %s in object.%s is None' % (
                 ref_col, objecttype))
-            return 0
+            return 0, False
 
         if parent_key is not None:
             # insert the reference of the hierarchical object into the tree structure
             if not self.insert_object_ref_into_hierarchie(obj, objecttype, ref, ref_col, parent_key):
-                return 0
+                return 0, False
 
         if objecttype not in self.export_objects:
             if self.verbose:
@@ -863,19 +922,20 @@ class ObjectPayloadManager(object):
                 log_info('insert new object of objecttype %s with ref %s' %
                          (objecttype, ref))
             self.export_objects[objecttype][ref] = obj
-            return 1
+            return 1, True
 
         # object already exists, merge new object
         if self.verbose:
             log_info('update existing object of objecttype %s with ref %s' %
                      (objecttype, ref))
         old_obj = self.export_objects[objecttype][ref]
-        self.export_objects[objecttype][ref] = self.merge_object(
+        new_obj, updated = self.merge_object(
             obj,
             old_obj,
             top_level=False)
+        self.export_objects[objecttype][ref] = new_obj
 
-        return 0
+        return 0, updated
 
     def insert_object_ref_into_hierarchie(self, obj: dict, objecttype: str, ref: str, ref_col: str, parent_key: str):
         if not objecttype in obj:
