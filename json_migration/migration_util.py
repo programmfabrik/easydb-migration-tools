@@ -380,6 +380,13 @@ ISO_FORMAT_OUTPUT = '%Y-%m-%dT%H:%M:%S'
 DATE_FORMAT_OUTPUT = '%Y-%m-%d'
 
 
+class JsonWithSets(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, set):
+            return list(o)
+        return json.JSONEncoder.default(self, o)
+
+
 def dumpjs(d: dict, indent=4):
     """
     dumpjs convert dict to a pretty printed json string
@@ -391,7 +398,7 @@ def dumpjs(d: dict, indent=4):
     :return: pretty printed json string
     :rtype: str
     """
-    return json.dumps(d, indent=indent, sort_keys=True)
+    return json.dumps(d, indent=indent, sort_keys=True, cls=JsonWithSets)
 
 
 def datetime_to_iso(d: datetime):
@@ -575,6 +582,29 @@ class ObjectPayloadManager(object):
         payload['objecttype'] = objecttype
         return payload, obj_key
 
+    @classmethod
+    def version_invalid(cls, obj, objecttype, version, ref_col):
+        if not '_version' in obj[objecttype]:
+            log_error(obj[objecttype][ref_col], '_version not set -> skip')
+            return True
+        if obj[objecttype]['_version'] != version:
+            log_error(obj[objecttype][ref_col], '_version =', obj[objecttype]
+                      ['_version'], '!= ', version)
+            # do not check version if the version is 0 in combination with auto_increment (only works for fylr!)
+            if obj[objecttype]['_version'] != 0:
+                log_error(obj[objecttype][ref_col], '_version != 0 -> skip')
+                return True
+            if not '_version:auto_increment' in obj[objecttype]:
+                log_error(
+                    obj[objecttype][ref_col], '_version = 0 but _version:auto_increment not set -> skip')
+                return True
+            if not obj[objecttype]['_version:auto_increment']:
+                log_error(
+                    obj[objecttype][ref_col], '_version = 0 but _version:auto_increment not TRUE -> skip')
+                return True
+
+        return False
+
     def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], batchnumber: int = 0, is_hierarchical: bool = False, version: int = 1):
         """
         save_payloads save objects as json files, add payload names to manifest
@@ -625,12 +655,12 @@ class ObjectPayloadManager(object):
                 if obj[objecttype][ref_col] not in refs:
                     continue
 
-            if not '_version' in obj[objecttype]:
-                continue
-            if obj[objecttype]['_version'] != version:
+            if self.version_invalid(obj, objecttype, version, ref_col):
                 continue
 
             all_objects.append(obj)
+
+        log_info('save', len(all_objects), 'objects of type', objecttype)
 
         offset = 0
         batch = 1
@@ -708,9 +738,7 @@ class ObjectPayloadManager(object):
                     if obj[objecttype][ref_col] not in refs:
                         continue
 
-                if not '_version' in obj[objecttype]:
-                    continue
-                if obj[objecttype]['_version'] != version:
+                if self.version_invalid(obj, objecttype, version, ref_col):
                     continue
 
                 all_objects.append(obj)
@@ -836,7 +864,7 @@ class ObjectPayloadManager(object):
         for obj_key in new_obj:
             new_v = new_obj[obj_key]
 
-            if obj_key in ['_version', 'lookup:_id']:
+            if obj_key in ['_version', '_version:auto_increment', 'lookup:_id']:
                 # if only the version or id lookup was changed/added, the object is not considered as updated
                 obj[obj_key] = new_v
                 continue
@@ -986,6 +1014,19 @@ class ObjectPayloadManager(object):
             return None
 
         return self.export_objects[objecttype][ref]
+
+    def get_export_object_references(self, objecttype: str):
+        """
+        get_export_object_references returns a list of all references for the objecttype if there are any
+
+        :param objecttype: objecttype of the object
+        :type objecttype: str
+        :return: list of all references, empty list if there are none
+        :rtype: list
+        """
+        if not objecttype in self.export_objects:
+            return []
+        return list(self.export_objects[objecttype].keys())
 
     def update_object(self, objecttype, ref, obj):
         """
