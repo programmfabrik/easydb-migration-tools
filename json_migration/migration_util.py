@@ -274,12 +274,46 @@ def sqlite3_connect(filename: str, detect_types: int = sqlite3.PARSE_DECLTYPES):
     """
     try:
         c = sqlite3.connect(filename, detect_types)
-        version = c.execute("""SELECT sqlite_version()""").fetchone()[0]
+        version = sqlite3_execute(
+            c,
+            """
+                SELECT sqlite_version()
+            """
+        )[0][0]
         log_info('Sqlite %s, Version: %s connected.' % (filename, version))
         return c
     except sqlite3.OperationalError as e:
         log_error('Error: Unable to open sqlite file: %s' % (filename))
         raise e
+
+
+def sqlite3_execute(con: sqlite3.Connection, query: str, params=[], debug=False):
+    """
+    sqlite3_execute perform a SQL query
+
+    :param con: connection to sqlite3 database
+    :type con: sqlite3.Connection
+    :param query: SQL query with statement
+    :type query: str
+    :param params: list of parameters, defaults to []
+    :type params: list, optional
+    :param debug: debug?, defaults to False
+    :type debug: bool, optional
+    :return: query result (if any)
+    :rtype: list
+    """
+    if debug:
+        log_info(query, '|', params)
+
+    t1 = datetime.now()
+    res = con.execute(query, params).fetchall()
+    t2 = datetime.now()
+
+    if debug:
+        log_info('QUERY: %d rows (db: %d ms)' %
+                 (len(res), (t2 - t1).microseconds / 1000))
+
+    return res
 
 
 def sqlite3_select(con: sqlite3.Connection, query: str, params=[], debug=False):
