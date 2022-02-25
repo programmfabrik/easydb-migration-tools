@@ -618,6 +618,8 @@ class ObjectPayloadManager(object):
 
     @classmethod
     def version_invalid(cls, obj, objecttype, version, ref_col):
+        if version == 0:
+            return False
         if not '_version' in obj[objecttype]:
             log_error(obj[objecttype][ref_col], '_version not set -> skip')
             return True
@@ -659,7 +661,7 @@ class ObjectPayloadManager(object):
         :type batchnumber: int, optional
         :param is_hierarchical: objecttype is hierarchical, defaults to False
         :type is_hierarchical: bool, optional
-        :param version: version of exported objects, defaults to 1
+        :param version: version of exported objects, defaults to 1. is ignored for checks if it is 0
         :type version: int, optional
         :return: manifest
         :rtype: dict
@@ -928,6 +930,8 @@ class ObjectPayloadManager(object):
             if isinstance(new_v, list) and isinstance(old_v, list):
                 result_array = []
                 for o in old_v:
+                    if o in result_array:
+                        continue
                     result_array.append(o)
                 for o in new_v:
                     if o in result_array:
