@@ -99,18 +99,26 @@ def log_error(*strings):
     """
     timestamp = datetime.now()
     s = format_string_list(strings)
-    # print(timestamp, s)
-    append_to_logfile(ERROR_LOG_FILE, s, timestamp)
+    append_to_logfile(ERROR_LOG_FILE, '[ERROR] ' + s, timestamp)
 
 
 def log_info(*strings):
     """
-    log_info append values as new line to info log file
+    log_info append values as new line to info log file and print line to console
     """
     timestamp = datetime.now()
     s = format_string_list(strings)
     print(timestamp, s)
-    append_to_logfile(INFO_LOG_FILE, s, timestamp)
+    append_to_logfile(INFO_LOG_FILE, '[INFO ] ' + s, timestamp)
+
+
+def log_debug(*strings):
+    """
+    log_debug append values as new line to info log file
+    """
+    timestamp = datetime.now()
+    s = format_string_list(strings)
+    append_to_logfile(INFO_LOG_FILE, '[DEBUG] ' + s, timestamp)
 
 
 def time_per_object(start: datetime, n: int):
