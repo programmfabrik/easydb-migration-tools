@@ -440,7 +440,7 @@ def dumpjs(d: dict, indent=4):
     :return: pretty printed json string
     :rtype: str
     """
-    return json.dumps(d, indent=indent, sort_keys=True, cls=JsonWithSets)
+    return json.dumps(d, indent=indent, cls=JsonWithSets)
 
 
 def datetime_to_iso(d: datetime):
