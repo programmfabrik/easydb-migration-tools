@@ -860,21 +860,23 @@ class ObjectPayloadManager(object):
         return tree_levels
 
     @classmethod
-    def merge_object(cls, new_obj: dict, old_obj: dict, top_level: bool = True):
+    def merge_object(cls, ref, new_obj: dict, old_obj: dict, path: list = []):
         """
         merge_object helper method to merge two objects with the same reference and different keys
 
+        :param ref: object reference (for debugging)
+        :type ref: str
         :param new_obj: object with new data
         :type new_obj: dict
         :param old_obj: old object
         :type old_obj: dict
-        :param top_level: for recursive call of function, defaults to True
-        :type top_level: bool, optional
+        :param path: for recursive call of function, defaults to [] (for debugging)
+        :type path: list, optional
         :raises Exception: Exception with information if merging failed
         :return: the merged object and if the object has been changed
         :rtype: dict, bool
         """
-        if top_level:
+        if len(path) == 0:
             if not '_objecttype' in new_obj:
                 raise Exception(
                     'could not merge objects: _objecttype missing in new obj')
@@ -895,9 +897,10 @@ class ObjectPayloadManager(object):
                 raise Exception(
                     'could not merge objects: %s missing in old obj' % old_objecttype)
 
-            old_obj[objecttype], updated = cls.merge_object(new_obj[objecttype],
+            old_obj[objecttype], updated = cls.merge_object(ref,
+                                                            new_obj[objecttype],
                                                             old_obj[old_objecttype],
-                                                            top_level=False)
+                                                            path=[objecttype])
             return old_obj, updated
 
         updated = False
@@ -907,6 +910,8 @@ class ObjectPayloadManager(object):
 
         for obj_key in new_obj:
             new_v = new_obj[obj_key]
+            if new_v is None:
+                continue
 
             if obj_key in ['_version', '_version:auto_increment', 'lookup:_id']:
                 # if only the version or id lookup was changed/added, the object is not considered as updated
@@ -920,17 +925,12 @@ class ObjectPayloadManager(object):
 
             old_v = old_obj[obj_key]
 
-            if old_v is None:
-                if obj[obj_key] != old_v:
-                    obj[obj_key] = new_v
-                    updated = True
-                continue
-
             if isinstance(new_v, dict) and isinstance(old_v, dict):
                 obj[obj_key], _updated = cls.merge_object(
+                    ref,
                     new_v,
                     old_v,
-                    top_level=False)
+                    path=path + [obj_key])
                 if _updated:
                     updated = True
                 continue
@@ -949,6 +949,10 @@ class ObjectPayloadManager(object):
 
                 obj[obj_key] = result_array
                 continue
+
+            if new_v != old_v:
+                obj[obj_key] = new_v
+                updated = True
 
         return obj, updated
 
@@ -1002,11 +1006,12 @@ class ObjectPayloadManager(object):
         if self.verbose:
             log_info('update existing object of objecttype %s with ref %s' %
                      (objecttype, ref))
+
         old_obj = self.export_objects[objecttype][ref]
         new_obj, updated = self.merge_object(
+            ref,
             obj,
-            old_obj,
-            top_level=False)
+            old_obj)
         self.export_objects[objecttype][ref] = new_obj
 
         return 0, updated
