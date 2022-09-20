@@ -430,7 +430,7 @@ SELECT origin_id, source_table_name FROM origin WHERE
         if add_comma:
             cmd += ",\n"
 
-        cmd += """  "{0}" {1}""".format(__unicode_decode(column["name"]), __unicode_decode(column["type"]))
+        cmd += """  "{0}" {1}""".format(column["name"], column["type"])
         add_comma = True
 
     pks = table_def["primary_keys"]
@@ -466,6 +466,8 @@ def __copy_data_to_source (
     cur = conn.cursor()
     tables = schema["tables"]
 
+    if limit is None:
+        limit = 1000
 
     for (table_name, tb) in list(tables.items()):
         qms = []
@@ -582,11 +584,6 @@ def __value_to_unicode (v):
     if isinstance(v, str):
         return __str_to_unicode(v)
     return str(v)
-
-def __unicode_decode (v):
-    if isinstance(v, str):
-        return v.encode('utf-8')
-    return v
 
 def __sqlite_get_schema(conn,
                         include_tables=None,
@@ -1328,7 +1325,7 @@ def csv_to_source (
     print("Notice: Reading CSV file", "\""+filename+"\"", "Dialect:", dialect)
 
     if dialect == "detect":
-        with open(filename, 'rb') as csvfile:
+        with open(filename, 'r') as csvfile:
             _dialect = csv.Sniffer().sniff(csvfile.read(2024))
         print("Notice: Detected dialect.")
     else:
@@ -1341,7 +1338,7 @@ def csv_to_source (
     # print("  quotechar   = %-6r    lineterminator   = %r" % (_dialect.quotechar, _dialect.lineterminator))
     # print("  escapechar  = %-6r" % _dialect.escapechar)
 
-    csvfile = open(filename, 'rb')
+    csvfile = open(filename, 'r')
     reader = csv.reader(csvfile, _dialect)
     row_count = 0
     if columns == None:

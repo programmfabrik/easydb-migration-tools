@@ -1,0 +1,33 @@
+<rows>
+    <row>
+        <id>1</id>
+        <text>lorem</text>
+        <number>12</number>
+        <datetime>2022-09-08 15:11:23</datetime>
+    </row>
+    <row>
+        <id>2</id>
+        <text>ipsum</text>
+        <number>40</number>
+        <datetime>2022-08-11 15:11:23</datetime>
+    </row>
+    <row>
+        <id>3</id>
+        <text>example</text>
+        <number>100</number>
+        <datetime>2022-06-12 15:11:23</datetime>
+    </row>
+    <row>
+        <id>4</id>
+        <text>beispiel</text>
+        <number>66</number>
+        <datetime>2022-07-16 15:11:23</datetime>
+    </row>
+    <row>
+        <id>5</id>
+        <text>längerer Text mit Umlauten?
+Und Zeilenumbrüchen</text>
+        <number>26</number>
+        <datetime>2022-08-25 15:11:23</datetime>
+    </row>
+</rows>
