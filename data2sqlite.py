@@ -19,38 +19,39 @@ argparser.add_argument('--name',         default='source',                      
 argparser.add_argument('--dump_mysql',                                          help='If set, output in mysql sql format, use "-" to dump to STDOUT')
 argparser.add_argument('-s', '--silent', action='store_true',                   help='If set, don\'t output progress every 100 rows.')
 
-subparsers=argparser.add_subparsers(dest='mode',                                help='Set Datasources')
+subparsers = argparser.add_subparsers(   dest='mode',                           help='Set Datasources')
 
-migration_parser=subparsers.add_parser('easydb4',                               help='Set Migration Mode to create Source for Migration')
-migration_parser.add_argument('--config',         nargs=3,                      help='Fetch Server Information from URL, usage: "--config URL login password" If set, no other arguments need to be set.')
+migration_parser = subparsers.add_parser('easydb4',                             help='Set Migration Mode to create Source for Migration')
+migration_parser.add_argument('--config',          nargs=3,                     help='Fetch Server Information from URL, usage: "--config URL login password" If set, no other arguments need to be set.')
 migration_parser.add_argument('--pg_dsn',                                       help='DSN for easydb-PostgreSQL Server, must be sperated by spaces')
 migration_parser.add_argument('--sqlite_file',                                  help='Filename for easydb_SQLite Database')
 migration_parser.add_argument('--eas_url',                                      help='URL for easydb-EAS-Server')
 migration_parser.add_argument('--eas_instance',                                 help='Instance-Name on EAS-Server')
-migration_parser.add_argument('--eas_versions',   nargs='*',                    help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
-migration_parser.add_argument('--schema',         default='public',             help='Schema for pg-database, default = "public". Set to "none" to not use a schema.')
+migration_parser.add_argument('--eas_versions',    nargs='*',                   help='Asset Version and Storage-Method, enter "version:method", e.g "original:url"')
+migration_parser.add_argument('--schema',          default='public',            help='Schema for pg-database, default = "public". Set to "none" to not use a schema.')
 
-pg_parser=subparsers.add_parser('pg',                                           help='Add to Source from postgres')
+pg_parser = subparsers.add_parser('pg',                                         help='Add to Source from postgres')
 pg_parser.add_argument('--dsn',                                                 help='DSN for PostgreSQL,format: "dbname=easydb port=5432 user=postgres"')
-pg_parser.add_argument('--schema',                default='public',             help='Schema for pg-database, default = "public"')
-pg_parser.add_argument('--tables',     nargs='*', default=[],                   help='Select Tables for Export from postgresql')
+pg_parser.add_argument('--schema',                 default='public',            help='Schema for pg-database, default = "public"')
+pg_parser.add_argument('--tables',      nargs='*', default=[],                  help='Select Tables for Export from postgresql')
 
-mysql_parser=subparsers.add_parser('mysql',                                     help='Add to Source from mySQL')
+mysql_parser = subparsers.add_parser('mysql',                                   help='Add to Source from mySQL')
 mysql_parser.add_argument('--host',                                             help='mySQL host')
 mysql_parser.add_argument('--dbname',                                           help='DB in mySQL host')
 mysql_parser.add_argument('--username',                                         help='Username for mySQL-DB')
-mysql_parser.add_argument('--password',           default='',                   help='PW for mySQL-User')
-mysql_parser.add_argument('--tables',  nargs='*', default=[],                   help='Select Tables for Export from postgresql')
+mysql_parser.add_argument('--password',            default='',                  help='PW for mySQL-User')
+mysql_parser.add_argument('--tables',   nargs='*', default=[],                  help='Select Tables for Export from postgresql')
 
-import_parser=subparsers.add_parser('file',                                     help='Add to Source from other files')
-import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
-import_parser.add_argument('--XML',    nargs='*', default=[],                   help='Filename(s) for XML')
-import_parser.add_argument('--CSV',    nargs='*', default=[],                   help='Filename(s) for CSV')
-import_parser.add_argument('--XLSX',   nargs='*', default=[],                   help='Filename(s) for Excel (Supported formats are .xlsx, .xlsm, .xltx, .xltm)')
+import_parser = subparsers.add_parser('file',                                   help='Add to Source from other files')
+import_parser.add_argument('--sqlite',  nargs='*', default=[],                  help='Filename for SQLite Database')
+import_parser.add_argument('--XML',     nargs='*', default=[],                  help='Filename(s) for XML')
+import_parser.add_argument('--CSV',     nargs='*', default=[],                  help='Filename(s) for CSV')
+import_parser.add_argument('--XLSX',    nargs='*', default=[],                  help='Filename(s) for Excel (Supported formats are .xlsx, .xlsm, .xltx, .xltm)')
+import_parser.add_argument('--K10plus', nargs='*', default=[],                  help='Filename(s) for k10plus (PICA+ format, .pp files)')
 
-import_parser=subparsers.add_parser('adhh',                                     help='Add to Source from ADHH XML files')
-import_parser.add_argument('--sqlite', nargs='*', default=[],                   help='Filename for SQLite Database')
-import_parser.add_argument('--xml',    nargs='*', default=[],                   help='Filename(s) for ADHH XML')
+import_parser = subparsers.add_parser('adhh',                                   help='Add to Source from ADHH XML files')
+import_parser.add_argument('--sqlite',  nargs='*', default=[],                  help='Filename for SQLite Database')
+import_parser.add_argument('--xml',     nargs='*', default=[],                  help='Filename(s) for ADHH XML')
 
 global args
 
@@ -128,13 +129,15 @@ if args.mode == 'easydb4':
         eas_url = args.eas_url
 
         if args.eas_instance is None:
-            logging.warning('No eas_instance provided. Program will terminate now')
+            logging.warning(
+                'No eas_instance provided. Program will terminate now')
             sys.exit(1)
 
         eas_instance = args.eas_instance
 
         if args.eas_versions is None:
-            logging.warning('No eas_versions provided. Program will terminate now')
+            logging.warning(
+                'No eas_versions provided. Program will terminate now')
             sys.exit(1)
 
         eas_versions = {}
@@ -255,7 +258,8 @@ if args.mode == 'mysql':
                 include_tables_exclusive=False
             )
     else:
-        logging.warning('Information about mySQL-Server is insufficient. Program will terminate now')
+        logging.warning(
+            'Information about mySQL-Server is insufficient. Program will terminate now')
         sys.exit(1)
 
 
@@ -313,10 +317,21 @@ if args.mode == 'file':
 
     if args.XLSX != []:
         for xlsx_file in args.XLSX:
-            logging.info('Adding XLSX to Source')
+            logging.info('Adding "' + xlsx_file + '" to Source')
             extract.excel_to_source(
                 name=args.name,
                 filename=xlsx_file)
+
+    if args.K10plus != []:
+        for k10plus_file in args.K10plus:
+            item_id_offset, offset = extract.k10plus_get_offset(k10plus_file)
+            logging.info('Adding "' + k10plus_file +
+                         '" to Source (start offset:' + str(offset) + ')')
+            item_id_offset = extract.k10plus_to_source(
+                filename=k10plus_file,
+                item_id_offset=item_id_offset,
+                offset=offset)
+
 
 # ADHH-IMPORT
 
