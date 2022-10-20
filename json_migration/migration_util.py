@@ -1,6 +1,7 @@
 # coding=utf8
 
 import sys
+import os
 import json
 import sqlite3
 import hashlib
@@ -8,6 +9,8 @@ from datetime import datetime, timedelta
 import urllib.request
 import traceback
 from six.moves.html_parser import HTMLParser
+import gzip
+from inspect import currentframe, getframeinfo
 
 
 import_type_array_map = {
@@ -72,6 +75,17 @@ def init_info_log():
     init_error_log call init_logfile for info log file
     """
     init_logfile(INFO_LOG_FILE)
+
+
+def debugline():
+    frame = currentframe()
+    if frame is None:
+        return ''
+    frameinfo = getframeinfo(frame.f_back)
+    return '%s:%d' % (
+        os.path.basename(frameinfo.filename),
+        frameinfo.lineno
+    )
 
 
 def format_string_list(strings):
@@ -570,6 +584,33 @@ def check_image_url_reachable(url: str, verbose: bool = False):
         log_error('URL', url, 'unreachable, Error:', e)
         return False
 
+
+def save_json_to_gzip_file(outputfolder: str, filename: str, data: dict, compression: int) -> str:
+    """
+    save_json_to_gzip_file convert data to json string, save as compressed gzip file
+
+    :param outputfolder: target folder for json files
+    :type outputfolder: str
+    :param filename: filename of json file
+    :type filename: str
+    :param data: data to convert to json
+    :type data: dict
+    :param compression: gzip compression (1-9)
+    :type compression: int
+    :return: renamed filename
+    :rtype: str
+    """
+
+    # gzip compression
+    if compression > 9:
+        compression = 9
+
+    filename += '.gz'
+    with gzip.open('%s/%s' % (outputfolder, filename), 'wb', compresslevel=compression) as f:
+        f.write(dumpjs(data).encode('utf-8'))
+
+    return filename
+
 # -----------------------------
 
 
@@ -649,7 +690,7 @@ class ObjectPayloadManager(object):
 
         return False
 
-    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], batchnumber: int = 0, is_hierarchical: bool = False, version: int = 1):
+    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], batchnumber: int = 0, is_hierarchical: bool = False, version: int = 1, compression: int = 0):
         """
         save_payloads save objects as json files, add payload names to manifest
 
@@ -671,6 +712,8 @@ class ObjectPayloadManager(object):
         :type is_hierarchical: bool, optional
         :param version: version of exported objects, defaults to 1. is ignored for checks if it is 0
         :type version: int, optional
+        :param compression: gzip compression (1-9), defaults to 0. 0 means no compression
+        :type compression: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -686,7 +729,8 @@ class ObjectPayloadManager(object):
                 ref_col,
                 batchsize,
                 refs,
-                version)
+                version,
+                compression=compression)
 
         all_objects = []
         for obj in self.export_objects[objecttype].values():
@@ -730,14 +774,15 @@ class ObjectPayloadManager(object):
                 filename,
                 'db',
                 manifest,
-                objecttype)
+                objecttype,
+                compression=compression)
 
             offset += batchsize
             batch += 1
 
         return manifest
 
-    def save_hierarchical_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], version: int = 1):
+    def save_hierarchical_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], version: int = 1, compression: int = 0):
         """
         save_hierarchical_payloads save objects as json files, add payload names to manifest
 
@@ -755,6 +800,8 @@ class ObjectPayloadManager(object):
         :type refs: list, optional
         :param version: version of exported objects, defaults to 1
         :type version: int, optional
+        :param compression: gzip compression (1-9), defaults to 0. 0 means no compression
+        :type compression: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -811,7 +858,8 @@ class ObjectPayloadManager(object):
                     filename,
                     'db',
                     manifest,
-                    objecttype)
+                    objecttype,
+                    compression=compression)
 
                 offset += batchsize
                 batch += 1
@@ -1118,7 +1166,7 @@ class ObjectPayloadManager(object):
             self.export_objects[objecttype] = {}
 
     @classmethod
-    def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None):
+    def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None, compression: int = 0):
         """
         save_batch save the batch of objects/basetypes as json files
 
@@ -1134,6 +1182,8 @@ class ObjectPayloadManager(object):
         :type manifest: dict
         :param objecttype: objecttype if the payload does not contain basetypes, defaults to None
         :type objecttype: str, optional
+        :param compression: gzip compression (1-9), defaults to 0. 0 means no compression
+        :type compression: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -1144,9 +1194,12 @@ class ObjectPayloadManager(object):
         if objecttype is not None:
             data['objecttype'] = objecttype
 
-        f = open('%s/%s' % (outputfolder, filename), 'w')
-        f.write(dumpjs(data))
-        f.close()
+        if compression < 1:
+            with open('%s/%s' % (outputfolder, filename), 'w') as f:
+                f.write(dumpjs(data))
+        else:
+            filename = save_json_to_gzip_file(
+                outputfolder, filename, data, compression)
 
         manifest['payloads'].append(filename)
         if objecttype is None:
