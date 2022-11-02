@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import urllib.request
 import traceback
 from six.moves.html_parser import HTMLParser
+from torch import le
 
 
 import_type_array_map = {
@@ -40,38 +41,44 @@ def append_to_logfile(logfile: str, s: str, timestamp: datetime = None):
     """
     if timestamp is None:
         timestamp = datetime.now()
+
     with open(logfile, 'a') as log:
         log.writelines([
             '\n',
             str(timestamp),
-            '\t',
             s
         ])
 
 
-def init_logfile(logfile: str):
+logfile_starttime = {}
+
+
+def init_logfile(logfile: str, start: datetime):
     """
     init_logfile create empty logfile
 
     :param logfile: filename of logfile
     :type logfile: str
     """
+    logfile_starttime[logfile] = start
     with open(logfile, 'w') as log:
         log.write('')
 
 
-def init_error_log():
+def init_error_log(start: datetime = None):
     """
     init_error_log call init_logfile for error log file
     """
-    init_logfile(ERROR_LOG_FILE)
+    init_logfile(ERROR_LOG_FILE, start=datetime.now()
+                 if start is None else start)
 
 
-def init_info_log():
+def init_info_log(start: datetime = None):
     """
     init_error_log call init_logfile for info log file
     """
-    init_logfile(INFO_LOG_FILE)
+    init_logfile(INFO_LOG_FILE, start=datetime.now()
+                 if start is None else start)
 
 
 def format_string_list(strings):
@@ -108,7 +115,11 @@ def log_info(*strings):
     """
     timestamp = datetime.now()
     s = format_string_list(strings)
-    print(timestamp, s)
+    if INFO_LOG_FILE in logfile_starttime:
+        total_runtime = timestamp - logfile_starttime[INFO_LOG_FILE]
+        print(timestamp, '[' + str(total_runtime) + ']', s)
+    else:
+        print(timestamp, s)
     append_to_logfile(INFO_LOG_FILE, '[INFO ] ' + s, timestamp)
 
 
@@ -324,7 +335,7 @@ def sqlite3_execute(con: sqlite3.Connection, query: str, params=[], debug=False)
     return res
 
 
-def sqlite3_select(con: sqlite3.Connection, query: str, params=[], debug=False):
+def sqlite3_select(con: sqlite3.Connection, query: str, params=[], debug: bool = False):
     """
     sqlite3_select perform a SELECT statement
 
@@ -347,7 +358,7 @@ def sqlite3_select(con: sqlite3.Connection, query: str, params=[], debug=False):
 
     columns = list(map(lambda x: x[0], cur.description))
     if debug:
-        log_info('COLS: [%s]' % ','.join(columns))
+        log_info('COLS: [%s]' % ', '.join(columns))
 
     res = cur.fetchall()
     t2 = datetime.now()
@@ -848,6 +859,10 @@ class ObjectPayloadManager(object):
             if leaf in tree_levels[level_key]:
                 continue
 
+            if len(tree_levels[level_key]) % 1000 == 0:
+                log_info('build hierarchical tree | level', level,
+                         '| handled', len(tree_levels[level_key]), 'objects')
+
             tree_levels[level_key].append(leaf)
 
             cls.group_tree_by_levels(
@@ -989,19 +1004,19 @@ class ObjectPayloadManager(object):
 
         if objecttype not in self.export_objects:
             if self.verbose:
-                log_info('add objecttype %s to export_objects' % (objecttype))
+                log_debug('add objecttype %s to export_objects' % (objecttype))
             self.export_objects[objecttype] = {}
         if ref not in self.export_objects[objecttype]:
             if self.verbose:
-                log_info('insert new object of objecttype %s with ref %s' %
-                         (objecttype, ref))
+                log_debug('insert new object of objecttype %s with ref %s' %
+                          (objecttype, ref))
             self.export_objects[objecttype][ref] = obj
             return 1, True
 
         # object already exists, merge new object
         if self.verbose:
-            log_info('update existing object of objecttype %s with ref %s' %
-                     (objecttype, ref))
+            log_debug('update existing object of objecttype %s with ref %s' %
+                      (objecttype, ref))
         old_obj = self.export_objects[objecttype][ref]
         new_obj, updated = self.merge_object(
             obj,
