@@ -1,0 +1,7 @@
+id,text,number,datetime
+1,lorem,12,2022-09-08 15:11:23
+2,ipsum,40,2022-08-11 15:11:23
+3,example,100,2022-06-12 15:11:23
+4,beispiel,66,2022-07-16 15:11:23
+5,"längerer Text mit Umlauten?
+Und Zeilenumbrüchen",26,2022-08-25 15:11:23

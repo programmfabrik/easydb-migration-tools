@@ -6,13 +6,13 @@
 '''
 
 import sqlite3
-import psycopg2
-import psycopg2.extensions
+# import psycopg2
+# import psycopg2.extensions
 import os
 import sys
 import decimal
 import json
-import MySQLdb
+# import MySQLdb
 import requests
 import chardet
 import csv
@@ -33,31 +33,42 @@ try:
 except NameError:
     silent = False
 
+
 def __pg_init():
-    psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
-    psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
+    return
+    # psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
+    # psycopg2.extensions.register_type(psycopg2.extensions.UNICODEARRAY)
 
 # FROM https://stackoverflow.com/questions/24307420/sqlalchemy-bc-dates-with-postgresql
 # to fix BC Dates
+
 
 CastDate = None
 
 # This function dafines types cast, and as returned database literal is already a string, no
 # additional logic required.
+
+
 def cast_date(value, cursor):
     return value
 
+
 def register_cast_date(connection):
-    global CastDate
-    if CastDate:
-        return
 
-    cursor = connection.cursor()
-    cursor.execute('SELECT NULL::timestamp(0) with time zone')
-    psql_date_oid = cursor.description[0][1]
+    return
 
-    CastDate = psycopg2.extensions.new_type((psql_date_oid,), 'DATE', cast_date)
-    psycopg2.extensions.register_type(CastDate)
+    # global CastDate
+    # if CastDate:
+    #     return
+
+    # cursor = connection.cursor()
+    # cursor.execute('SELECT NULL::timestamp(0) with time zone')
+    # psql_date_oid = cursor.description[0][1]
+
+    # CastDate = psycopg2.extensions.new_type(
+    #     (psql_date_oid,), 'DATE', cast_date)
+    # psycopg2.extensions.register_type(CastDate)
+
 
 def __sqlite_init():
     def adapt_list(l):
@@ -81,8 +92,9 @@ def __sqlite_init():
     sqlite3.register_adapter(decimal.Decimal, adapt_decimal)
     sqlite3.register_converter("decimal", convert_decimal)
 
-def __str_to_unicode (s):
-    if isinstance(s,str):
+
+def __str_to_unicode(s):
+    if isinstance(s, str):
         return s
     try:
         return s.decode("utf-8")
@@ -99,6 +111,7 @@ def __str_to_unicode (s):
                 print("Error: __str_to_unicode: ", repr(s), "Error:", e)
                 raise e
         # print(rec[cn])
+
 
 def __execute(cursor, sql, bindings=None):
     global silent
@@ -117,57 +130,61 @@ def __execute(cursor, sql, bindings=None):
 
         raise e
 
-def __commit_source ():
+
+def __commit_source():
     global source_conn
     if source_conn:
         source_conn.commit()
         source_conn.close()
         print("Notice: Commited source.")
 
-def __pg_get_schema(conn,
-                    schema_name=None,
-                    include_tables=None,
-                    include_tables_exclusive=True,
-                    include_schema_in_table_name=True,
-                    exclude_tables=None):
+
+def __pg_get_schema(
+        conn,
+        schema_name=None,
+        include_tables=None,
+        include_tables_exclusive=True,
+        include_schema_in_table_name=True,
+        exclude_tables=None):
 
     cur = conn.cursor()
-    cur.execute("SELECT current_database()")
+    cur.execute("""
+        SELECT current_database()
+    """)
     db_name = cur.fetchall()[0][0]
 
     schema = {
         "tables": {},
         "type": "postgresql",
         "database": db_name
-        }
+    }
 
     if schema_name != None:
-        schema_filter = " AND table_schema = '"+schema_name+"'"
+        schema_filter = " AND table_schema = '" + schema_name + "'"
     else:
         schema_filter = ""
 
     cur.execute("""
-    SELECT
-      table_schema, table_name, column_name, data_type
+        SELECT table_schema, table_name, column_name, data_type
 
-    FROM
-      information_schema.columns
+        FROM information_schema.columns
 
-    WHERE
-      table_schema not in ('pg_catalog','information_schema') AND
-      data_type NOT IN ('tsvector') AND
-      table_name not in ('easydb_autocomplete')
-      %s
+        WHERE table_schema not in ('pg_catalog','information_schema')
+        AND data_type NOT IN ('tsvector')
+        AND table_name not in ('easydb_autocomplete')
+        {schema_filter}
 
-    ORDER BY table_name, ordinal_position
-    """ % schema_filter)
+        ORDER BY table_name, ordinal_position
+    """.format(
+        schema_filter=schema_filter
+    ))
 
     pg_to_sqlite = {
         "bigint": "INTEGER",
         "smallint": "INTEGER",
         "USER-DEFINED": "TEXT",
-        "timestamp with time zone": "TEXT", # DATETIME",
-        "timestamp without time zone": "TEXT", # "DATETIME",
+        "timestamp with time zone": "TEXT",  # DATETIME",
+        "timestamp without time zone": "TEXT",  # "DATETIME",
         "character varying": "TEXT",
         "character": "TEXT",
         "bytea": "TEXT",
@@ -180,8 +197,7 @@ def __pg_get_schema(conn,
         "ARRAY": "list",
         "uuid": "TEXT",
         "double precision": "REAL"
-        }
-
+    }
 
     for row in cur.fetchall():
 
@@ -189,14 +205,14 @@ def __pg_get_schema(conn,
         table_name = row[1]
 
         if include_schema_in_table_name:
-            tn = __str_to_unicode(schema_name+"."+table_name)
+            tn = __str_to_unicode(schema_name + "." + table_name)
         else:
             tn = __str_to_unicode(table_name)
 
         column_name = row[2]
 
         try:
-            data_type =  pg_to_sqlite[row[3]]
+            data_type = pg_to_sqlite[row[3]]
         except Exception as e:
             print(row)
             print(repr(e))
@@ -204,41 +220,37 @@ def __pg_get_schema(conn,
 
         if not tn in schema["tables"]:
             schema["tables"][tn] = {
-                "columns":[],
+                "columns": [],
                 "schema_name": schema_name,
                 "table_name": table_name,
-                "table_name_select_escaped": '"'+schema_name+'"."'+table_name+'"'
-                }
+                "table_name_select_escaped": '"' + schema_name + '"."' + table_name + '"'
+            }
 
         tb = schema["tables"][tn]
         if row[3] != "bytea":
             tb["columns"].append({
-                    "name": column_name,
-                    "type": data_type
-                    })
+                "name": column_name,
+                "type": data_type
+            })
 
     for (tn, tb) in list(schema["tables"].items()):
 
-        select = """
-    SELECT
-      tc.table_name, c.column_name, c.data_type
-    FROM
-      information_schema.table_constraints tc
-    JOIN
-      information_schema.constraint_column_usage AS ccu
-      USING (constraint_schema, constraint_name)
-    JOIN
-      information_schema.columns AS c
-      ON
-        c.table_schema = tc.constraint_schema AND
-        tc.table_name = c.table_name AND
-        ccu.column_name = c.column_name
-    WHERE
-       constraint_type = 'PRIMARY KEY' AND
-       tc.table_name = '%s' AND
-       tc.table_schema = '%s' """ % (tb["table_name"], tb["schema_name"])
+        __execute(cur, """
+            SELECT tc.table_name, c.column_name, c.data_type
+            FROM information_schema.table_constraints tc
 
-        __execute(cur, select)
+            JOIN information_schema.constraint_column_usage AS ccu
+            USING (constraint_schema, constraint_name)
+
+            JOIN information_schema.columns AS c
+            ON c.table_schema = tc.constraint_schema
+            AND tc.table_name = c.table_name
+            AND ccu.column_name = c.column_name
+
+            WHERE constraint_type = 'PRIMARY KEY'
+            AND tc.table_name = '%s'
+            AND tc.table_schema = '%s'
+        """ % (tb["table_name"], tb["schema_name"]))
 
         tb["primary_keys"] = []
         for pk_row in cur.fetchall():
@@ -249,15 +261,17 @@ def __pg_get_schema(conn,
         include_tables=include_tables,
         include_tables_exclusive=include_tables_exclusive,
         exclude_tables=exclude_tables
-        )
+    )
 
     return schema
 
-def __filter_schema(schema,
-                    include_tables=None,
-                    include_tables_exclusive=True,
-                    exclude_tables=None
-                    ):
+
+def __filter_schema(
+    schema,
+    include_tables=None,
+    include_tables_exclusive=True,
+    exclude_tables=None
+):
     # run thru schema an drop not included tables
 
     tables = schema["tables"]
@@ -266,14 +280,16 @@ def __filter_schema(schema,
         # check if all tables are available
         for table_name in list(include_tables.keys()):
             if table_name not in tables:
-                print("""Error: include_table "%s" not found in origin.""" % (table_name))
+                print("""Error: include_table "%s" not found in origin.""" %
+                      (table_name))
                 err = True
 
     if exclude_tables != None:
         # check if all tables are available
         for table_name in exclude_tables:
             if table_name not in tables:
-                print("""Error: exclude_table "%s" not found in origin.""" % (table_name))
+                print("""Error: exclude_table "%s" not found in origin.""" %
+                      (table_name))
                 err = True
 
     if err:
@@ -326,7 +342,8 @@ def __filter_schema(schema,
                     if column["name"] == column_name:
                         found = True
                 if not found:
-                    print("""Error: include_column "%s"."%s" not found in table.""" % (table_name, column_name))
+                    print("""Error: include_column "%s"."%s" not found in table.""" % (
+                        table_name, column_name))
                     err = True
 
             if err:
@@ -342,7 +359,8 @@ def __filter_schema(schema,
 
     return schema
 
-def __create_schema_in_source (name, schema):
+
+def __create_schema_in_source(name, schema):
     global source_conn
 
     print("""\nCreating tables for "%s" """ % schema["database"])
@@ -351,22 +369,23 @@ def __create_schema_in_source (name, schema):
 
     for (tn, tb) in list(tables.items()):
         __create_table_in_source(
-            origin_database_name = schema["database"],
-            origin_type = schema["type"],
-            source_name = name,
-            origin_table_name = tn,
-            table_def = tb
-            )
+            origin_database_name=schema["database"],
+            origin_type=schema["type"],
+            source_name=name,
+            origin_table_name=tn,
+            table_def=tb
+        )
     return
 
-def __create_table_in_source (
+
+def __create_table_in_source(
     origin_database_name,
     origin_type,
     source_name,
     origin_table_name,
     table_def,
     source_table_name=None
-    ):
+):
 
     global source_conn
 
@@ -377,16 +396,18 @@ def __create_table_in_source (
 
     if source_table_name == None:
         __execute(sql2, """
-      SELECT origin_id, origin_table_name FROM origin WHERE
-         source_name = ? AND
-         lower(source_table_name) = lower(?)
-     """, (source_name, origin_table_name))
+            SELECT origin_id, origin_table_name
+            FROM origin
+            WHERE source_name = ?
+            AND lower(source_table_name) = lower(?)
+        """, (source_name, origin_table_name))
 
         rows = sql2.fetchall()
 
         if len(rows):
-            source_table_name = origin_table_name+"_"+str(len(rows))
-            print("Warning:", origin_table_name, "renamed to:", source_table_name)
+            source_table_name = origin_table_name + "_" + str(len(rows))
+            print("Warning:", origin_table_name,
+                  "renamed to:", source_table_name)
         else:
             source_table_name = origin_table_name
 
@@ -395,19 +416,22 @@ def __create_table_in_source (
 
     else:
         __execute(sql2, """
-SELECT origin_id, source_table_name FROM origin WHERE
-       source_name = ? AND
-       source_table_name = ?""",
-                  (source_name, source_table_name))
+            SELECT origin_id, source_table_name
+            FROM origin
+            WHERE source_name = ?
+            AND source_table_name = ?
+        """, (source_name, source_table_name))
         rows = sql2.fetchall()
         if len(rows):
             drop = True
 
-
-    table_def["table_name_in_source"] = source_name+"."+source_table_name
+    table_def["table_name_in_source"] = source_name + "." + source_table_name
     if drop:
-        cmd = """DROP TABLE IF EXISTS "%s" """ % (table_def["table_name_in_source"])
-        print("Notice: Dropping existing table: ", table_def["table_name_in_source"])
+        cmd = """
+            DROP TABLE IF EXISTS "%s"
+        """ % (table_def["table_name_in_source"])
+        print("Notice: Dropping existing table: ",
+              table_def["table_name_in_source"])
         __execute(sql, cmd)
     else:
         __execute(sql2, """
@@ -416,9 +440,15 @@ SELECT origin_id, source_table_name FROM origin WHERE
           VALUES (?,?,?,?,?)
      """, (origin_database_name, origin_type, origin_table_name, source_name, source_table_name))
 
-    cmd = """CREATE TABLE "%s" (\n""" % (table_def["table_name_in_source"])
-    cmd += "   __source_unique_id TEXT UNIQUE,\n"
-    cmd += "   __source_inserted_time DATETIME DEFAULT CURRENT_TIMESTAMP,\n"
+    cmd = """
+        CREATE TABLE "%s" (
+    """ % (table_def["table_name_in_source"])
+    cmd += """
+        __source_unique_id TEXT UNIQUE,
+    """
+    cmd += """
+        __source_inserted_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    """
 
     add_comma = False
 
@@ -430,12 +460,12 @@ SELECT origin_id, source_table_name FROM origin WHERE
         if add_comma:
             cmd += ",\n"
 
-        cmd += """  "{0}" {1}""".format(__unicode_decode(column["name"]), __unicode_decode(column["type"]))
+        cmd += """  "{0}" {1}""".format(column["name"], column["type"])
         add_comma = True
 
     pks = table_def["primary_keys"]
     if len(pks) > 0:
-        cmd += ",\nPRIMARY KEY ("+'"'+'","'.join(pks)+'")'
+        cmd += ",\nPRIMARY KEY (" + '"' + '","'.join(pks) + '")'
 
     cmd += "\n)"
 
@@ -443,17 +473,19 @@ SELECT origin_id, source_table_name FROM origin WHERE
     __execute(sql, cmd)
 
     if "onCreate" in table_def:
-        cmd = table_def["onCreate"].replace("%TABLE_NAME_IN_SOURCE%", table_def["table_name_in_source"])
+        cmd = table_def["onCreate"].replace(
+            "%TABLE_NAME_IN_SOURCE%", table_def["table_name_in_source"])
 
-        print("""Notice: %s[onCreate]: %s""" % (table_def["table_name_in_source"], cmd))
+        print("""Notice: %s[onCreate]: %s""" %
+              (table_def["table_name_in_source"], cmd))
         __execute(sql, cmd)
 
 
-def __copy_data_to_source (
+def __copy_data_to_source(
     conn,
     schema,
-    limit = None
-    ):
+    limit=None
+):
 
     global source_conn, args
 
@@ -466,6 +498,8 @@ def __copy_data_to_source (
     cur = conn.cursor()
     tables = schema["tables"]
 
+    if limit is None:
+        limit = 1000
 
     for (table_name, tb) in list(tables.items()):
         qms = []
@@ -477,25 +511,27 @@ def __copy_data_to_source (
         if "where" in tb:
             w = tb["where"]
             if w != None and len(w) > 0:
-                where = "WHERE "+w
+                where = "WHERE " + w
 
         if "limit" in tb:
             use_limit = tb["limit"]
 
         if "orderby" in tb:
-            use_orderby = "ORDER BY "+tb["orderby"]
+            use_orderby = "ORDER BY " + tb["orderby"]
         elif len(tb["primary_keys"]) > 0:
-            use_orderby = "ORDER BY \""+"\",\"".join(tb["primary_keys"])+"\""
+            use_orderby = "ORDER BY \"" + \
+                "\",\"".join(tb["primary_keys"]) + "\""
         else:
             use_orderby = ""
 
         if use_limit == 0:
-            print("""Notice: Not copying data for table "%s", request limit is 0. Use None for no limit.""")
+            print(
+                """Notice: Not copying data for table "%s", request limit is 0. Use None for no limit.""")
             continue
 
         copy_source_unique_id = False
         for idx, column in enumerate(tb["columns"]):
-            column_names.append('"'+column["name"]+'"')
+            column_names.append('"' + column["name"] + '"')
             if column["name"] == "__source_unique_id":
                 copy_source_unique_id = True
 
@@ -503,11 +539,25 @@ def __copy_data_to_source (
 
         columns = ",".join(column_names)
         if copy_source_unique_id:
-            insert = """INSERT INTO "%s" (%s) VALUES (%s)""" % (tb["table_name_in_source"], columns, ",".join(qms))
+            insert = """
+                INSERT INTO "%s" (%s)
+                VALUES (%s)
+            """ % (
+                tb["table_name_in_source"],
+                columns,
+                ",".join(qms)
+            )
         else:
-            insert = """INSERT INTO "%s" (__source_unique_id, %s) VALUES (?, %s)""" % (tb["table_name_in_source"], columns, ",".join(qms))
+            insert = """
+                INSERT INTO "%s" (__source_unique_id, %s)
+                VALUES (?, %s)
+            """ % (
+                tb["table_name_in_source"],
+                columns,
+                ",".join(qms)
+            )
 
-        prefix = "Notice: "+tb["table_name_in_source"]
+        prefix = "Notice: " + tb["table_name_in_source"]
         if not silent:
             print(prefix, end=' ')
 
@@ -527,12 +577,20 @@ def __copy_data_to_source (
                 use_chunk = chunk
 
             if use_chunk > 0:
-                lm = "LIMIT "+str(use_chunk)+" OFFSET "+str(offset)
+                lm = "LIMIT " + str(use_chunk) + " OFFSET " + str(offset)
             else:
                 lm = ""
 
-            select = """SELECT %s FROM %s %s %s %s""" % (columns, tb["table_name_select_escaped"], where, use_orderby, lm)
-            __execute(cur, select)
+            __execute(cur, """
+                SELECT %s
+                FROM %s %s %s %s
+            """ % (
+                columns,
+                tb["table_name_select_escaped"],
+                where,
+                use_orderby,
+                lm
+            ))
 
             for row in cur:
                 rec = {}
@@ -559,89 +617,99 @@ def __copy_data_to_source (
 
                 count += 1
                 chunk_count += 1
-                # print(save_row)
 
                 __execute(sql, insert, save_row)
 
-                if count%100==0 and not silent:
-                    print("\r"+prefix, count, "rows...", end=' ')
+                if count % 100 == 0 and not silent:
+                    print("\r" + prefix, count, "rows...", end=' ')
                     sys.stdout.flush()
 
             if chunk == 0 or chunk_count < chunk:
                 break
             offset += chunk
 
-        print("\r"+prefix, count, "rows.")
+        print("\r" + prefix, count, "rows.")
         sys.stdout.flush()
 
     return
 
-def __value_to_unicode (v):
+
+def __value_to_unicode(v):
     if isinstance(v, str):
         return v
     if isinstance(v, str):
         return __str_to_unicode(v)
     return str(v)
 
-def __unicode_decode (v):
-    if isinstance(v, str):
-        return v.encode('utf-8')
-    return v
 
-def __sqlite_get_schema(conn,
-                        include_tables=None,
-                        include_tables_exclusive=True,
-                        exclude_tables=None
-                        ):
+def __sqlite_get_schema(
+    conn,
+    include_tables=None,
+    include_tables_exclusive=True,
+    exclude_tables=None
+):
     sql = conn.cursor()
-    sql.execute("PRAGMA database_list")
+    sql.execute("""
+        PRAGMA database_list
+    """)
     db_name = sql.fetchall()[0][2]
 
-    sql.execute("SELECT type,name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'seq_%'")
+    sql.execute("""
+        SELECT type, name, sql
+        FROM sqlite_master
+        WHERE type='table'
+        AND name NOT LIKE 'sqlite_%'
+        AND name NOT LIKE 'seq_%'
+    """)
     schema = {
         "tables": {},
         "type": "sqlite",
         "database": db_name
 
-        }
+    }
 
     for row in sql.fetchall():
         tn = __str_to_unicode(row[1])
 
         schema["tables"][tn] = {
             "table_name": row[1],
-            "table_name_select_escaped": '"'+row[1]+'"',
+            "table_name_select_escaped": '"' + row[1] + '"',
             "columns": []
-            }
+        }
 
     for (table_name, tb) in list(schema["tables"].items()):
-        sql.execute("""PRAGMA table_info("%s")""" % table_name)
+        sql.execute("""
+            PRAGMA table_info("{table_name}")
+        """.format(
+            table_name=table_name
+        ))
         _pks = {}
+
         # cid|name|type|notnull|dflt_value|pk
         for row in sql.fetchall():
             tb["columns"].append({
-                    "name": row[1],
-                    "type": row[2]
-                    })
+                "name": row[1],
+                "type": row[2]
+            })
             if row[5] > 0:
-                _pks[row[5]-1] = row[1]
+                _pks[row[5] - 1] = row[1]
         pks = []
         for i in range(5):
             if i in _pks:
                 pks.append(_pks[i])
         tb["primary_keys"] = pks
 
-
     __filter_schema(
         schema=schema,
         include_tables=include_tables,
         include_tables_exclusive=include_tables_exclusive,
         exclude_tables=exclude_tables
-        )
+    )
 
     return schema
 
-def res_get_json (res):
+
+def res_get_json(res):
     if not hasattr(res, "json"):
         # very old python request, no json attribute
         return json.loads(res.content)
@@ -652,31 +720,34 @@ def res_get_json (res):
         # new python.requests module: json is a method
         return res.json()
 
-def __store_eas_id (
-    name, # name of source
-    url,  # url of eas
-    instance, # instance of eas
-    eas_id,  # id for asset
-    table_name, # table name in source
+
+def __store_eas_id(
+    name,              # name of source
+    url,               # url of eas
+    instance,          # instance of eas
+    eas_id,            # id for asset
+    table_name,        # table name in source
     source_unique_id,  # id in source
-    column_name,  # column in source
-    eas_versions = { "original": ["url"] }
-    ):
+    column_name,       # column in source
+    eas_versions={"original": ["url"]}
+):
 
     if isinstance(eas_id, list):
         _eas_ids_a = list(map(str, eas_id))
         assert(isinstance(source_unique_id, list))
         _source_unique_ids_a = source_unique_id
     else:
-        _eas_ids_a = [str(eas_id),]
-        _source_unique_ids_a = [source_unique_id,]
+        _eas_ids_a = [str(eas_id), ]
+        _source_unique_ids_a = [source_unique_id, ]
 
-    req = url+"/bulkversions?instance="+instance+"&asset_ids=["+",".join(_eas_ids_a)+"]"
+    req = url + "/bulkversions?instance=" + instance + \
+        "&asset_ids=[" + ",".join(_eas_ids_a) + "]"
 
     _res = requests.get(req)
 
     if _res.status_code != 200:
-        print("""Warning: EAS-ID %s not found or error from EAS-Server. Status: "%s".""" % (_eas_ids_a, _res.status_code), _res.text)
+        print("""Warning: EAS-ID %s not found or error from EAS-Server. Status: "%s".""" %
+              (_eas_ids_a, _res.status_code), _res.text)
         return False
 
     res = res_get_json(_res)
@@ -708,13 +779,15 @@ def __store_eas_id (
                     break
 
             if not use_version:
-                print("Notice: EAS-ID", _eas_id, "Version", eas_version, """not found.""")
+                print("Notice: EAS-ID", _eas_id, "Version",
+                      eas_version, """not found.""")
                 # skip
                 skips += 1
                 continue
 
             if use_version["status"] != "done":
-                print("""Warning: EAS-ID %s, Version "%s" has status "%s", Request: "%s", skipping.""" % (_eas_id, use_version["version"], use_version["status"], req))
+                print("""Warning: EAS-ID %s, Version "%s" has status "%s", Request: "%s", skipping.""" %
+                      (_eas_id, use_version["version"], use_version["status"], req))
                 # skip
                 skips += 1
                 continue
@@ -725,32 +798,33 @@ def __store_eas_id (
                 # we need to insert this first, because of a foreign key we
                 # have
                 ret = __store_eas_id(
-                    name = name,
-                    instance = instance,
-                    url = url,
-                    eas_id = eas_root_id,
-                    eas_versions = { eas_version: store_as },
-                    table_name = table_name,
-                    source_unique_id = _source_unique_id,
-                    column_name = column_name
-                    )
+                    name=name,
+                    instance=instance,
+                    url=url,
+                    eas_id=eas_root_id,
+                    eas_versions={eas_version: store_as},
+                    table_name=table_name,
+                    source_unique_id=_source_unique_id,
+                    column_name=column_name
+                )
                 if ret == False:
-                    print("Warning: Could not insert root id, not storing root_id", eas_root_id)
+                    print(
+                        "Warning: Could not insert root id, not storing root_id", eas_root_id)
                     eas_root_id = None
 
             __store_file_from_url(
-                url = url+use_version["link"],
-                name = name,
-                source_table_name = table_name,
-                source_unique_id = _source_unique_id,
-                source_column_name = column_name,
-                original_filename = original["custom"]["original_filename"],
-                file_unique_id = use_version["hash"],
-                eas_id = int(_eas_id),
-                eas_root_id = eas_root_id,
-                file_version = eas_version,
-                store_as = store_as
-                )
+                url=url + use_version["link"],
+                name=name,
+                source_table_name=table_name,
+                source_unique_id=_source_unique_id,
+                source_column_name=column_name,
+                original_filename=original["custom"]["original_filename"],
+                file_unique_id=use_version["hash"],
+                eas_id=int(_eas_id),
+                eas_root_id=eas_root_id,
+                file_version=eas_version,
+                store_as=store_as
+            )
 
     if skips > 0:
         print("Warning: %s out of %s versions failed to export." % (skips, count))
@@ -759,36 +833,43 @@ def __store_eas_id (
         return True
 
 # stores file as blob from url
-def __store_file_from_url (
-    name,              # name of source
-    url,               # url to fetch data from
-    source_table_name, # table this is meant for
-    source_unique_id,  # row in table this is meant for
-    source_column_name,# column in table this is meant for
-    file_unique_id,    # a unique id provided to store the file
-    eas_id = None,     # optional eas-id
-    eas_root_id = None,# optional eas-root-id
-    file_version = None,# optional version
-    original_filename = None, # original_filename of file
-    store_as = ["data"] # allowed values are "data", "url", "file"
-    ):
+
+
+def __store_file_from_url(
+    name,                    # name of source
+    url,                     # url to fetch data from
+    source_table_name,       # table this is meant for
+    source_unique_id,        # row in table this is meant for
+    source_column_name,      # column in table this is meant for
+    file_unique_id,          # a unique id provided to store the file
+    eas_id=None,             # optional eas-id
+    eas_root_id=None,        # optional eas-root-id
+    file_version=None,       # optional version
+    original_filename=None,  # original_filename of file
+    store_as=["data"]        # allowed values are "data", "url", "file"
+):
 
     global silent
 
     if eas_id:
-        info = "EAS-ID:"+str(eas_id)+" ["+file_version+"]"
+        info = "EAS-ID:" + str(eas_id) + " [" + file_version + "]"
     else:
-        info = "URL:"+os.path.basename(url)
+        info = "URL:" + os.path.basename(url)
 
     sql = source_conn.cursor()
 
     # let's see if we already know the file
-    __execute(sql, """SELECT filestore_id FROM filestore WHERE unique_id=?""", [file_unique_id])
+    __execute(sql, """
+        SELECT filestore_id
+        FROM filestore
+        WHERE unique_id=?
+    """, [file_unique_id])
 
     for s_as in store_as:
         if s_as in ["data", "url", "file"]:
             if s_as == "file":
-                print("""Warning: store_as parameter "file" is currently unsupported. """)
+                print(
+                    """Warning: store_as parameter "file" is currently unsupported. """)
             continue
         print("""Error: store_as parameter needs to be an Array of "data", "url", and/or "file".""")
         sys.exit(1)
@@ -796,7 +877,7 @@ def __store_file_from_url (
     row = sql.fetchone()
     if row:
         filestore_id = row[0]
-        print("Notice: Re-used File: ", filestore_id, info) # ,r.headers
+        print("Notice: Re-used File: ", filestore_id, info)  # ,r.headers
     else:
         mimetype = None
         blobdata = None
@@ -805,9 +886,9 @@ def __store_file_from_url (
 
         if "data" in store_as:
             if url.startswith("file://"):
-                fn = url[7:] # cut of file
-                if not fn.startswith("/"): # relative path, add cwd
-                    fn = os.getcwd()+"/"+fn
+                fn = url[7:]  # cut of file
+                if not fn.startswith("/"):  # relative path, add cwd
+                    fn = os.getcwd() + "/" + fn
                     # print("file name", fn)
                     # print("file_unique_id", file_unique_id)
 
@@ -830,23 +911,19 @@ def __store_file_from_url (
         else:
             filename = None
 
-        __execute(sql, """INSERT INTO filestore (
-               unique_id,
-               original_filename,
-               filename,
-               url,
-               mimetype,
-               filesize,
-               data
-         ) VALUES (?,?,?,?,?,?,?)""", (
-                file_unique_id,
-                original_filename,
-                filename,
-                url,
-                mimetype,
-                filesize,
-                blobdata
-                ))
+        __execute(sql, """
+            INSERT INTO filestore
+            (unique_id, original_filename, filename, url, mimetype, filesize, data)
+            VALUES (?,?,?,?,?,?,?)
+        """, (
+            file_unique_id,
+            original_filename,
+            filename,
+            url,
+            mimetype,
+            filesize,
+            blobdata
+        ))
 
         filestore_id = sql.lastrowid
 
@@ -857,45 +934,37 @@ def __store_file_from_url (
             extra_info.append(str(mimetype))
 
         if filesize != None:
-            extra_info.append(str(filesize)+"b")
+            extra_info.append(str(filesize) + "b")
 
         if len(extra_info):
-            extra_info_txt = "("+",".join(extra_info)+")"
+            extra_info_txt = "(" + ",".join(extra_info) + ")"
         else:
             extra_info_txt = ""
 
         if not silent:
-            print("Notice: File:", filestore_id, extra_info_txt.encode("utf8"), "stored in filestore.", info)
+            print("Notice: File:", filestore_id, extra_info_txt.encode(
+                "utf8"), "stored in filestore.", info)
 
-
-    __execute(sql, """INSERT INTO file
-            (filestore_id,
-             source_name,
-             source_table_name,
-             source_unique_id,
-             source_column_name,
-             origin_url,
-             eas_id,
-             eas_root_id,
-             file_version
-             )
-
-            VALUES (?,?,?,?,?,?,?,?,?)""",
-              (filestore_id,
-               name,
-               source_table_name,
-               source_unique_id,
-               source_column_name,
-               url,
-               eas_id,
-               eas_root_id,
-               file_version
-               )
-              )
+    __execute(sql, """
+        INSERT INTO file
+        (filestore_id, source_name, source_table_name, source_unique_id, source_column_name, origin_url, eas_id, eas_root_id, file_version)
+        VALUES (?,?,?,?,?,?,?,?,?)
+    """, (
+        filestore_id,
+        name,
+        source_table_name,
+        source_unique_id,
+        source_column_name,
+        url,
+        eas_id,
+        eas_root_id,
+        file_version
+    ))
 
     sql.close()
 
     return
+
 
 def __mysql_get_schema(conn,
                        include_tables=None,
@@ -907,16 +976,17 @@ def __mysql_get_schema(conn,
     db_name = cur.fetchall()[0][0]
 
     cur.execute("""
-    SELECT table_name, column_name, data_type
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE table_schema=DATABASE()
-    ORDER BY table_name, ordinal_position""")
+        SELECT table_name, column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+        ORDER BY table_name, ordinal_position
+    """)
 
     schema = {
         "tables": {},
         "type": "mysql",
         "database": db_name
-        }
+    }
 
     mysql_to_sqlite = {
         "varchar": "TEXT",
@@ -936,8 +1006,7 @@ def __mysql_get_schema(conn,
         "timestamp": "DATETIME",
         "date": "TEXT",
         "datetime": "TEXT"
-        }
-
+    }
 
     for row in cur.fetchall():
         table_name = row[0]
@@ -949,40 +1018,44 @@ def __mysql_get_schema(conn,
 
         if not tn in schema["tables"]:
             schema["tables"][tn] = {
-                "columns":[],
+                "columns": [],
                 "table_name": table_name,
-                "table_name_select_escaped": '"'+table_name+'"'
-                }
+                "table_name_select_escaped": '"' + table_name + '"'
+            }
         tb = schema["tables"][tn]
         tb["columns"].append({
-                "name": column_name,
-                "type": data_type
-                })
+            "name": column_name,
+            "type": data_type
+        })
 
     for (tn, tb) in list(schema["tables"].items()):
         cur.execute("""
-        SELECT column_name
-             FROM information_schema.key_column_usage k
-             WHERE table_schema=DATABASE()
-                AND constraint_name='PRIMARY'
-                AND table_name='%s'
-        ORDER BY table_name, ordinal_position""" % (tb["table_name"]))
+            SELECT column_name
+                FROM information_schema.key_column_usage k
+            WHERE table_schema = DATABASE()
+                AND constraint_name = 'PRIMARY'
+                AND table_name = '{table_name}'
+            ORDER BY table_name, ordinal_position
+        """.format(
+            table_name=tb["table_name"]
+        ))
 
         tb["primary_keys"] = []
         for pk_row in cur.fetchall():
             tb["primary_keys"].append(pk_row[0])
-
 
     __filter_schema(
         schema=schema,
         include_tables=include_tables,
         include_tables_exclusive=include_tables_exclusive,
         exclude_tables=exclude_tables
-        )
+    )
 
     return schema
 
 # http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+
+
 def __human_size(size_bytes):
     """
     format a size in bytes into a 'human' file size, e.g. bytes, KB, MB, GB, TB, PB
@@ -992,7 +1065,8 @@ def __human_size(size_bytes):
     if size_bytes == 1:
         return "1 byte"
 
-    suffixes_table = [('bytes',0),('KB',0),('MB',1),('GB',2),('TB',2), ('PB',2)]
+    suffixes_table = [('bytes', 0), ('KB', 0), ('MB', 1),
+                      ('GB', 2), ('TB', 2), ('PB', 2)]
 
     num = float(size_bytes)
     for suffix, precision in suffixes_table:
@@ -1008,11 +1082,14 @@ def __human_size(size_bytes):
     return "%s %s" % (formatted_size, suffix)
 
 # source is the output file of this script, the name source stems from the following step in the migration
-def prepare_source (
-    source="result.sqlite", # filename for the sqlite database file, where the results will be written into
-    init=True, # set True and source will be purged
-    init_filestore=None # create crucial tables inside the target sqlite file
-    ):
+
+
+def prepare_source(
+    # filename for the sqlite database file, where the results will be written into
+    source="result.sqlite",
+    init=True,  # set True and source will be purged
+    init_filestore=None  # create crucial tables inside the target sqlite file
+):
 
     global source_conn
 
@@ -1028,7 +1105,6 @@ def prepare_source (
     except NameError:
         pass
 
-
     filename = __str_to_unicode(source)
 
     print("""Preparing source "%s" """ % filename, file=sys.stderr)
@@ -1043,59 +1119,102 @@ def prepare_source (
     # FIXME: if Init==False: check for file existence!
 
     try:
-        source_conn = sqlite3.connect(filename, detect_types=sqlite3.PARSE_DECLTYPES)
+        source_conn = sqlite3.connect(
+            filename, detect_types=sqlite3.PARSE_DECLTYPES)
     except sqlite3.OperationalError as e:
-        print("Error: Unable to open sqlite file: "+filename)
+        print("Error: Unable to open sqlite file: " + filename)
         raise e
 
-    source_conn.execute("""PRAGMA foreign_keys=ON""")
+    source_conn.execute("""
+        PRAGMA foreign_keys=ON
+    """)
 
-    version = source_conn.execute("""SELECT sqlite_version()""").fetchone()[0]
+    version = source_conn.execute("""
+        SELECT sqlite_version()
+    """).fetchone()[0]
     print("""Sqlite %s, Version: %s connected.""" % (filename, version))
 
     if init:
         if not init_filestore:
             sql = source_conn.cursor()
-            row = sql.execute("""SELECT count(filestore_id),sum(filesize) FROM filestore""").fetchone()
+            row = sql.execute("""
+                SELECT count(filestore_id), sum(filesize)
+                FROM filestore
+            """).fetchone()
 
-            print("""Keeping filestore in source "%s", removing all origins. \nFilestore currently holds %s files in %s bytes.""" % (source, row[0], __human_size(row[1])))
+            print("""Keeping filestore in source "%s", removing all origins. \nFilestore currently holds %s files in %s bytes.""" % (
+                source, row[0], __human_size(row[1])))
+
             # remove manually
-            sql.execute("""SELECT DISTINCT(source_name) FROM origin""")
+            sql.execute("""
+                SELECT DISTINCT(source_name)
+                FROM origin
+            """)
             for row in sql.fetchall():
                 remove_from_source(row[0])
             sql.close()
         else:
-            source_conn.execute("""CREATE TABLE origin (
-               origin_id INTEGER PRIMARY KEY,
-               origin_type TEXT NOT NULL,
-               origin_database_name TEXT NOT NULL,
-               origin_table_name TEXT NOT NULL,
-               source_name TEXT NOT NULL,
-               source_table_name TEXT NOT NULL,
-               UNIQUE(origin_type, origin_database_name, origin_table_name),
-               UNIQUE(source_name, source_table_name)
-            )""")
+            source_conn.execute("""
+                CREATE TABLE origin (
+                    origin_id INTEGER PRIMARY KEY,
+                    origin_type TEXT NOT NULL,
+                    origin_database_name TEXT NOT NULL,
+                    origin_table_name TEXT NOT NULL,
+                    source_name TEXT NOT NULL,
+                    source_table_name TEXT NOT NULL,
+                    UNIQUE(origin_type, origin_database_name, origin_table_name),
+                    UNIQUE(source_name, source_table_name)
+                )
+            """)
 
-            source_conn.execute("""CREATE TABLE IF NOT EXISTS xmldata (
-               node_id_path TEXT NOT NULL,
-               node_element_path TEXT NOT NULL,
-               node_id INTEGER PRIMARY KEY,
-               node_parent_id INTEGER,
-               node_level INTEGER NOT NULL,
-               node_element TEXT,
-               node_attrs TEXT,
-               node_data TEXT
-           )""")
+            # for XML
 
-            __execute(source_conn, """CREATE INDEX xmldata_idx ON xmldata (
-               node_id_path
-        )""")
+            source_conn.execute("""
+                CREATE TABLE IF NOT EXISTS xmldata (
+                    node_id_path TEXT NOT NULL,
+                    node_element_path TEXT NOT NULL,
+                    node_id INTEGER PRIMARY KEY,
+                    node_parent_id INTEGER,
+                    node_level INTEGER NOT NULL,
+                    node_element TEXT,
+                    node_attrs TEXT,
+                    node_data TEXT
+                )
+            """)
 
-            source_conn.execute("""CREATE TABLE IF NOT EXISTS "xmldata.transcribed" (
-               node_id_path TEXT NOT NULL,
-               node_element_path TEXT NOT NULL
-            )""")
+            __execute(source_conn, """
+                CREATE INDEX xmldata_idx ON xmldata (node_id_path)
+            """)
 
+            source_conn.execute("""
+                CREATE TABLE IF NOT EXISTS "xmldata.transcribed" (
+                    node_id_path TEXT NOT NULL,
+                    node_element_path TEXT NOT NULL
+                )
+            """)
+
+            # K10plus
+
+            # table that stores values which belong to items
+            source_conn.execute("""
+                CREATE TABLE IF NOT EXISTS k10plus_source (
+                    filename TEXT NOT NULL,
+                    offset INTEGER NOT NULL,
+                    from_item_id INTEGER,
+                    to_item_id INTEGER
+                )
+            """)
+
+            # table that stores values which belong to items (pica feld and unterfeld in rows)
+            source_conn.execute("""
+                CREATE TABLE IF NOT EXISTS k10plus_data (
+                    id INTEGER PRIMARY KEY,
+                    item_id INTEGER NOT NULL,
+                    feld TEXT NOT NULL,
+                    unterfeld TEXT NOT NULL,
+                    wert TEXT NOT NULL
+                )
+            """)
 
         print("Notice: Create Base Tables Sqlite Database \"%s\"" % filename)
     else:
@@ -1104,56 +1223,71 @@ def prepare_source (
     if init_filestore:
         if not init:
             print("Notice: Dropping Filestore Tables", filename)
-            source_conn.execute("""PRAGMA foreign_keys=OFF""")
-            __execute(source_conn, """DROP TABLE IF EXISTS \"file\" """)
-            __execute(source_conn, """DROP TABLE IF EXISTS \"filestore\" """)
-            source_conn.execute("""PRAGMA foreign_keys=ON""")
+            source_conn.execute("""
+                PRAGMA foreign_keys=OFF
+            """)
+            __execute(source_conn, """
+                DROP TABLE IF EXISTS "file"
+            """)
+            __execute(source_conn, """
+                DROP TABLE IF EXISTS "filestore"
+            """)
+            source_conn.execute("""
+                PRAGMA foreign_keys=ON
+            """)
 
-        __execute(source_conn, """CREATE TABLE file (
-               file_id INTEGER PRIMARY KEY,
-               filestore_id INTEGER NOT NULL,
+        __execute(source_conn, """
+            CREATE TABLE file (
+                file_id INTEGER PRIMARY KEY,
+                filestore_id INTEGER NOT NULL,
 
-               source_name TEXT NOT NULL,
-               source_table_name TEXT NOT NULL,
-               source_column_name TEXT NOT NULL,
-               source_unique_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                source_table_name TEXT NOT NULL,
+                source_column_name TEXT NOT NULL,
+                source_unique_id TEXT NOT NULL,
 
-               origin_url TEXT,
-               eas_id INTEGER,
-               eas_root_id INTEGER,
-               file_version TEXT,
+                origin_url TEXT,
+                eas_id INTEGER,
+                eas_root_id INTEGER,
+                file_version TEXT,
 
-               UNIQUE(eas_id, file_version),
-               FOREIGN KEY (filestore_id) REFERENCES filestore(filestore_id) ON DELETE RESTRICT
-            )""")
+                UNIQUE(eas_id, file_version),
+                FOREIGN KEY (filestore_id) REFERENCES filestore(filestore_id) ON DELETE RESTRICT
+            )
+        """)
 
+        __execute(source_conn, """
+            CREATE INDEX file_idx ON file (
+                source_name,
+                source_table_name,
+                source_column_name,
+                source_unique_id
+            )
+        """)
 
-        __execute(source_conn, """CREATE INDEX file_idx ON file (
-               source_name,
-               source_table_name,
-               source_column_name,
-               source_unique_id
-        )""")
-
-        __execute(source_conn, """CREATE TABLE filestore (
-               filestore_id INTEGER PRIMARY KEY,
-               unique_id TEXT NOT NULL UNIQUE,
-               original_filename TEXT,
-               mimetype TEXT,
-               filesize INTEGER,
-               url TEXT,
-               filename TEXT,
-               data BLOB
-            )""")
+        __execute(source_conn, """
+            CREATE TABLE filestore (
+                filestore_id INTEGER PRIMARY KEY,
+                unique_id TEXT NOT NULL UNIQUE,
+                original_filename TEXT,
+                mimetype TEXT,
+                filesize INTEGER,
+                url TEXT,
+                filename TEXT,
+                data BLOB
+            )
+        """)
 
         print("Notice: Created Filestore Tables:", filename)
 
 # remove all data from the source for a
 # specific name
-def remove_from_source (
-    name, # name of source
-    keep_filestore=False # whether to keep or drop files from filestore
-    ):
+
+
+def remove_from_source(
+    name,  # name of source
+    keep_filestore=False  # whether to keep or drop files from filestore
+):
     global source_conn
 
     print("\nRemoving all tables for source", name, ".", end=' ')
@@ -1163,19 +1297,37 @@ def remove_from_source (
         print("Removing matching files from filestore...")
 
     sql = source_conn.cursor()
-    __execute(sql, "SELECT source_name, source_table_name FROM origin WHERE source_name=?", [name])
+    __execute(sql, """
+        SELECT source_name, source_table_name
+        FROM origin
+        WHERE source_name=?
+    """,
+              [name])
     for row in sql.fetchall():
         tntpl = (row[0], row[1])
-        __execute(sql, """DROP TABLE IF EXISTS "%s.%s" """ % tntpl)
+        __execute(sql, """
+            DROP TABLE IF EXISTS "%s.%s"
+        """ % tntpl)
 
     if not keep_filestore:
         __execute(sql, """
-             DELETE FROM filestore
-             WHERE filestore_id IN (
-                SELECT filestore_id FROM file WHERE source_name=?
-             )""", [name])
-        __execute(sql, """DELETE FROM file WHERE source_name=?""", [name])
-    __execute(sql, """DELETE FROM origin WHERE source_name=?""", [name])
+            DELETE FROM filestore
+            WHERE filestore_id IN (
+                SELECT filestore_id
+                FROM file
+                WHERE source_name=?
+            )
+        """, [name])
+        __execute(sql, """
+            DELETE FROM file
+            WHERE source_name=?
+        """, [name])
+
+    __execute(sql, """
+        DELETE FROM origin
+        WHERE source_name=?
+    """, [name])
+
 
 def pg_to_source(
     name,
@@ -1186,14 +1338,18 @@ def pg_to_source(
     include_tables_exclusive=True,
     include_schema_in_table_name=True,
     exclude_tables=None
-    ):
-    conn = psycopg2.connect(dsn)
-    register_cast_date(conn)
+):
+    return
 
-    schema = __pg_get_schema(conn=conn, schema_name=schema_name, include_tables=include_tables, include_schema_in_table_name=include_schema_in_table_name, include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
-    __create_schema_in_source(name=name, schema=schema)
-    __copy_data_to_source(conn=conn, schema=schema, limit=limit)
-    conn.close()
+    # conn = psycopg2.connect(dsn)
+    # register_cast_date(conn)
+
+    # schema = __pg_get_schema(conn=conn, schema_name=schema_name, include_tables=include_tables,
+    #                          include_schema_in_table_name=include_schema_in_table_name, include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
+    # __create_schema_in_source(name=name, schema=schema)
+    # __copy_data_to_source(conn=conn, schema=schema, limit=limit)
+    # conn.close()
+
 
 def sqlite_to_source(
     name,
@@ -1202,10 +1358,11 @@ def sqlite_to_source(
     include_tables=None,
     include_tables_exclusive=True,
     exclude_tables=None
-    ):
+):
 
     conn = sqlite3.connect(filename, detect_types=sqlite3.PARSE_DECLTYPES)
-    schema = __sqlite_get_schema(conn=conn, include_tables=include_tables, include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
+    schema = __sqlite_get_schema(conn=conn, include_tables=include_tables,
+                                 include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
     __create_schema_in_source(name=name, schema=schema)
     # we use a byte string here, so we can detect
     # the correct charset
@@ -1213,32 +1370,56 @@ def sqlite_to_source(
     __copy_data_to_source(conn=conn, schema=schema, limit=limit)
     conn.close()
 
-def eas_to_source (name, url, instance, eas_versions):
+
+def eas_to_source(name, url, instance, eas_versions):
     global source_conn
 
-    print("Notice: Loading data from EAS:", url, "Instance: ", instance, "Versions:", repr(eas_versions))
+    print("Notice: Loading data from EAS:", url, "Instance: ",
+          instance, "Versions:", repr(eas_versions))
 
     sql = source_conn.cursor()
     sql2 = source_conn.cursor()
-    sql.execute("""SELECT table_name, name FROM "%s.eadb_columns" WHERE type='easfile'"""%(name))
+    sql.execute("""
+        SELECT table_name, name
+        FROM "%s.eadb_columns"
+        WHERE type='easfile'
+    """ % (name))
     eas_cols = 0
     for row in sql.fetchall():
         table_name = row[0]
         column_name = row[1]
-        cmd = """SELECT origin_id, source_table_name FROM origin WHERE source_name="%s" AND (source_table_name LIKE "%%.%s" OR source_table_name = "%s") """ % (name, table_name, table_name)
-        # print(cmd)
-        __execute(sql2, cmd)
+        __execute(sql2, """
+            SELECT origin_id, source_table_name
+            FROM origin
+            WHERE source_name="%s"
+            AND (
+                source_table_name LIKE "%%.%s"
+                OR source_table_name = "%s"
+            )
+            """ % (name, table_name, table_name))
         _row = sql2.fetchone()
         if _row == None:
-            print("Notice: Table '%s.%s[%s]' not found in source, unable to import EAS files." % (name, table_name, column_name))
+            print("Notice: Table '%s.%s[%s]' not found in source, unable to import EAS files." % (
+                name, table_name, column_name))
             continue
 
         eas_cols += 1
         source_table_name = _row[1]
 
-        cmd = """SELECT "%s", __source_unique_id FROM "%s.%s" WHERE "%s" > 0 AND "%s" != '%s' """ % (column_name, name, source_table_name, column_name, column_name, column_name)
-        print("Notice: Importing %s.%s..." %(table_name, column_name))
-        __execute(sql2, cmd)
+        print("Notice: Importing %s.%s..." % (table_name, column_name))
+        __execute(sql2, """
+            SELECT "%s", __source_unique_id
+            FROM "%s.%s"
+            WHERE "%s" > 0
+            AND "%s" != '%s'
+        """ % (
+            column_name,
+            name,
+            source_table_name,
+            column_name,
+            column_name,
+            column_name
+        ))
         count = 0
         eas_ids = []
         source_unique_ids = []
@@ -1249,37 +1430,39 @@ def eas_to_source (name, url, instance, eas_versions):
 
             if len(eas_ids) == 1000:
                 __store_eas_id(
-                    name = name,
-                    instance = instance,
-                    url = url,
-                    eas_id = eas_ids,
-                    table_name = source_table_name, #table_name,
-                    source_unique_id = source_unique_ids,
-                    column_name = column_name,
-                    eas_versions = eas_versions
-                    )
+                    name=name,
+                    instance=instance,
+                    url=url,
+                    eas_id=eas_ids,
+                    table_name=source_table_name,  # table_name,
+                    source_unique_id=source_unique_ids,
+                    column_name=column_name,
+                    eas_versions=eas_versions
+                )
                 eas_ids = []
                 source_unique_ids = []
 
         if len(eas_ids) > 0:
             __store_eas_id(
-                name = name,
-                instance = instance,
-                url = url,
-                eas_id = eas_ids,
-                table_name = source_table_name, #table_name,
-                source_unique_id = source_unique_ids,
-                column_name = column_name,
-                eas_versions = eas_versions
-                )
+                name=name,
+                instance=instance,
+                url=url,
+                eas_id=eas_ids,
+                table_name=source_table_name,  # table_name,
+                source_unique_id=source_unique_ids,
+                column_name=column_name,
+                eas_versions=eas_versions
+            )
 
-        print("Notice: Done Importing %s.%s. Imported %s files." %(table_name, column_name, count))
+        print("Notice: Done Importing %s.%s. Imported %s files." %
+              (table_name, column_name, count))
 
     if eas_cols == 0:
         print("Warning: No EAS columns found and nothing imported for '%s'." % (name))
 
     sql2.close()
     sql.close()
+
 
 def mysql_to_source(
     name,
@@ -1291,57 +1474,75 @@ def mysql_to_source(
     include_tables=None,
     include_tables_exclusive=True,
     exclude_tables=None
-    ):
+):
 
-    conn = MySQLdb.connect(host=host, db=db, user=user, passwd=passwd)
+    return  # XXX
 
-    conn.cursor().execute("SET SQL_MODE=ANSI_QUOTES;")
+    # conn = MySQLdb.connect(host=host, db=db, user=user, passwd=passwd)
 
-    schema = __mysql_get_schema(conn=conn, include_tables=include_tables, include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
-    __create_schema_in_source(name=name, schema=schema)
-    __copy_data_to_source(conn=conn, schema=schema, limit=limit)
-    conn.close()
+    # conn.cursor().execute("""
+    #     SET SQL_MODE=ANSI_QUOTES;
+    # """)
+
+    # schema = __mysql_get_schema(conn=conn, include_tables=include_tables,
+    #                             include_tables_exclusive=include_tables_exclusive, exclude_tables=exclude_tables)
+    # __create_schema_in_source(name=name, schema=schema)
+    # __copy_data_to_source(conn=conn, schema=schema, limit=limit)
+    # conn.close()
+
 
 def get_source_conn():
     global source_conn
     return source_conn
 
+
 def escape_col(value):
     return value.replace("\"", "")
 
+
 def format_insert(table_def, column_names, qms):
-    return """INSERT INTO "%s" (__source_unique_id, %s) VALUES(%s)""" % (
+    return """
+        INSERT INTO "%s"
+        (__source_unique_id, %s)
+        VALUES(%s)
+    """ % (
         table_def["table_name_in_source"],
-        ",".join(['"%s"' % c for c in list(map(escape_col, list(map(__value_to_unicode, column_names))))]),
+        ",".join(['"%s"' % c for c in list(
+            map(escape_col, list(map(__value_to_unicode, column_names))))]),
         ",".join(qms))
 
-def csv_to_source (
+# CSV
+
+
+def csv_to_source(
     name,             # name in source
     filename,         # csv filename
     columns=None,     # columns array with "name" and "type" as keys, defaults to first row in csv
     table_name=None,  # table name in source, defaults to filename's basename
     dialect="detect"  # csv dialect
-    ):
+):
     global source_conn
     sql = source_conn.cursor()
 
-    print("Notice: Reading CSV file", "\""+filename+"\"", "Dialect:", dialect)
+    print("Notice: Reading CSV file", "\"" +
+          filename + "\"", "Dialect:", dialect)
 
     if dialect == "detect":
-        with open(filename, 'rb') as csvfile:
+        with open(filename, 'r') as csvfile:
             _dialect = csv.Sniffer().sniff(csvfile.read(2024))
         print("Notice: Detected dialect.")
     else:
         _dialect = csv.get_dialect(dialect)
 
-    quoting_modes = dict( (getattr(csv,n), n) for n in dir(csv) if n.startswith('QUOTE_') )
+    quoting_modes = dict((getattr(csv, n), n)
+                         for n in dir(csv) if n.startswith('QUOTE_'))
 
     # print("  delimiter   = %-6r    skipinitialspace = %r" % (_dialect.delimiter, _dialect.skipinitialspace))
     # print("  doublequote = %-6r    quoting          = %s" % (_dialect.doublequote, quoting_modes[_dialect.quoting]))
     # print("  quotechar   = %-6r    lineterminator   = %r" % (_dialect.quotechar, _dialect.lineterminator))
     # print("  escapechar  = %-6r" % _dialect.escapechar)
 
-    csvfile = open(filename, 'rb')
+    csvfile = open(filename, 'r')
     reader = csv.reader(csvfile, _dialect)
     row_count = 0
     if columns == None:
@@ -1352,7 +1553,7 @@ def csv_to_source (
             idx = idx + 1
             cn = column_name.strip()
             if len(column_name) == 0:
-                cn = "column_"+str(idx)
+                cn = "column_" + str(idx)
 
             columns.append({"name": escape_col(cn), "type": "TEXT"})
         row_count += 1
@@ -1364,20 +1565,20 @@ def csv_to_source (
     column_names = []
     for column in columns:
         qms.append("?")
-        column_names.append('"'+column["name"]+'"')
+        column_names.append('"' + column["name"] + '"')
 
     table_def = {
         "columns": columns,
         "primary_keys": []
-        }
+    }
 
     __create_table_in_source(
-        origin_database_name = os.path.abspath(filename),
-        origin_type = "csv",
-        source_name = name,
-        table_def = table_def,
-        origin_table_name = table_name
-        )
+        origin_database_name=os.path.abspath(filename),
+        origin_type="csv",
+        source_name=name,
+        table_def=table_def,
+        origin_table_name=table_name
+    )
 
     insert = format_insert(table_def, column_names, qms)
 
@@ -1386,30 +1587,34 @@ def csv_to_source (
         bindings.append(row_count)
         for s in row:
             if len(bindings) == len(qms):
-                print("Warning: Too many columns found in row %s, ignoring additional columns." % row_count)
+                print(
+                    "Warning: Too many columns found in row %s, ignoring additional columns." % row_count)
                 break
             bindings.append(__value_to_unicode(s))
 
         if len(bindings) < len(qms):
             # fill with space
-            for i in range(0, len(qms)-len(bindings)):
+            for i in range(0, len(qms) - len(bindings)):
                 bindings.append("")
 
         try:
             __execute(sql, insert, bindings)
         except Exception as e:
-            print("Row["+str(row_count)+"]:", row)
+            print("Row[" + str(row_count) + "]:", row)
             raise e
 
         row_count += 1
 
     csvfile.close()
 
-def excel_to_source (
+# EXCEL
+
+
+def excel_to_source(
     name,             # name in source
     filename,         # excel filename
     table_name=None   # table name in source, defaults to filename's basename
-    ):
+):
 
     global source_conn
     sql = source_conn.cursor()
@@ -1417,12 +1622,12 @@ def excel_to_source (
     if table_name is None:
         table_name = os.path.basename(filename)
 
-    print("Notice: Reading excel file", "\""+filename+"\"")
+    print("Notice: Reading excel file", "\"" + filename + "\"")
 
     wb = openpyxl.load_workbook(filename)
 
     for sheetname in wb.sheetnames:
-        print("Notice: Reading excel sheet", "\""+sheetname+"\"")
+        print("Notice: Reading excel sheet", "\"" + sheetname + "\"")
 
         sheet = wb[sheetname]
 
@@ -1457,7 +1662,7 @@ def excel_to_source (
 
         for column in header:
             qms.append("?")
-            column_names.append('"'+column+'"')
+            column_names.append('"' + column + '"')
             columns.append({
                 "name": escape_col(column),
                 "type": "TEXT"
@@ -1469,11 +1674,11 @@ def excel_to_source (
         }
 
         __create_table_in_source(
-            origin_database_name = os.path.abspath(filename),
-            origin_type = "xlsx",
-            source_name = name,
-            table_def = table_def,
-            origin_table_name = "{}.{}".format(table_name, sheetname)
+            origin_database_name=os.path.abspath(filename),
+            origin_type="xlsx",
+            source_name=name,
+            table_def=table_def,
+            origin_table_name="{}.{}".format(table_name, sheetname)
         )
 
         insert = format_insert(table_def, column_names, qms)
@@ -1491,7 +1696,8 @@ def excel_to_source (
 
             for cell in row:
                 if len(bindings) == len(qms):
-                    print("Warning: Too many columns found in row %s, ignoring additional columns." % row_count)
+                    print(
+                        "Warning: Too many columns found in row %s, ignoring additional columns." % row_count)
                     break
 
                 cell_value = cell.value
@@ -1501,20 +1707,231 @@ def excel_to_source (
 
             if len(bindings) < len(qms):
                 # fill with space
-                for i in range(0, len(qms)-len(bindings)):
+                for i in range(0, len(qms) - len(bindings)):
                     bindings.append("")
 
             try:
                 __execute(sql, insert, bindings)
             except Exception as e:
-                print("Row["+str(row_count)+"]:", row)
+                print("Row[" + str(row_count) + "]:", row)
                 raise e
 
             row_count += 1
 
-def __chunks (l, n):
+###########################################
+
+# K10+
+
+
+DELIMITER_OBJ = '\x1d'  # Group separator
+DELIMITER_REC = '\x1e'  # Record separator
+DELIMITER_VAL = '\x1f'  # Unit separator
+NEWLINE = '\n'
+
+
+def parse_line(line):
+
+    if line[0] == DELIMITER_OBJ:
+        return [DELIMITER_OBJ]
+
+    if line[0] == DELIMITER_REC:
+        line = line[1:]
+    else:
+        return []
+
+    while line[-1] == NEWLINE:
+        line = line[:-1]
+
+    return [
+        l.strip()
+        for l in line.split(DELIMITER_VAL)
+    ]
+
+
+def group_line(parsed):
+    if len(parsed) < 2:
+        return None
+
+    res = {}
+    for i in range(len(parsed) - 1):
+        p = parsed[i + 1]
+        if len(p) < 2:
+            continue
+
+        res[p[0]] = p[1:]
+
+    return res
+
+
+def k10plus_get_offset(filename):
+
+    global source_conn
+    cur = source_conn.cursor()
+
+    __execute(cur, """
+        SELECT max(to_item_id)
+        FROM k10plus_source
+
+        UNION ALL
+
+        SELECT offset
+        FROM k10plus_source
+        WHERE filename = '{source}'
+    """.format(
+        source=os.path.basename(filename)
+    ))
+    rows = cur.fetchall()
+    cur.close()
+
+    item_id_offset = 0
+    offset = 0
+
+    if rows is None:
+        return item_id_offset, offset
+
+    if len(rows) > 0:
+        if rows[0][0] is not None:
+            item_id_offset = int(rows[0][0])
+    if len(rows) > 1:
+        if rows[1][0] is not None:
+            offset = int(rows[1][0])
+
+    return item_id_offset, offset
+
+
+def k10plus_to_source(
+    filename,        # .pp filename
+    item_id_offset,  # last assigned item_id to start of when assigning new ids for new items
+    offset           # offset in the current file if items where already saved from this file
+):
+    global source_conn
+    cur = source_conn.cursor()
+
+    basename = os.path.basename(filename)
+
+    item_id = item_id_offset
+
+    start = datetime.datetime.now()
+    total_items = 0
+    total_rows = 0
+
+    cur_item = 0
+    skip_current_object = False
+
+    interrupt = False
+    close_connection = False
+
+    # if the file was not read yet (partially), add it to the source table
+    if offset == 0:
+        # insert a new entry in the source table
+        __execute(cur, """
+            INSERT INTO k10plus_source
+            (filename, offset, from_item_id)
+            VALUES (?,?,?)
+        """, (
+            basename,
+            0,
+            item_id_offset + 1
+        ))
+
+    try:
+
+        with open(filename, 'r') as f:
+            for line in f:
+
+                parsed = parse_line(line)
+                if len(parsed) == 0:
+                    continue
+
+                feld = parsed[0]
+
+                # skip all lines if the current object is to be ignored
+                if skip_current_object and feld != DELIMITER_OBJ:
+                    continue
+
+                # new entry
+                if feld == DELIMITER_OBJ:
+
+                    skip_current_object = False
+
+                    # skip the object if it was imported already
+                    if offset > 0 and cur_item <= offset:
+
+                        skip_current_object = True
+                        cur_item += 1
+
+                        continue
+
+                    item_id += 1
+                    cur_item += 1
+                    total_items += 1
+
+                    if item_id % 1000 == 0:
+                        print('\r' + filename + '\t' + str(item_id), end=' ')
+                        sys.stdout.flush()
+
+                    continue
+
+                if len(parsed) < 2:
+                    continue
+
+                group = group_line(parsed)
+                for unterfeld in group:
+                    # insert a new entry in the data table, add an uplink to the item
+                    __execute(cur, """
+                        INSERT INTO k10plus_data
+                        (item_id, feld, unterfeld, wert)
+                        VALUES (?,?,?,?)
+                    """, (
+                        item_id,
+                        feld,
+                        unterfeld,
+                        group[unterfeld]
+                    ))
+                    total_rows += 1
+
+    except KeyboardInterrupt:
+        interrupt = True
+        close_connection = True
+
+    except Exception as e:
+        close_connection = True
+        raise e
+
+    # update offset and last item id in source table
+    __execute(cur, """
+        UPDATE k10plus_source
+        SET offset = ?, to_item_id = ?
+        WHERE filename = ?
+    """, (
+        cur_item - 1,
+        item_id,
+        basename
+    ))
+
+    cur.close()
+    if close_connection:
+        source_conn.commit()
+
+    if item_id > 1000:
+        print()
+    print(filename, '| duration:', (datetime.datetime.now() -
+          start), '|', total_items, 'items,', total_rows, 'rows')
+
+    if interrupt:
+        exit(0)
+
+    return item_id
+
+###########################################
+
+# XML
+
+
+def __chunks(l, n):
     n = max(1, n)
     return [l[i:i + n] for i in range(0, len(l), n)]
+
 
 def xml_save_node(
     # node_type,
@@ -1523,7 +1940,7 @@ def xml_save_node(
     node_attr_key=None,
     node_attr_value=None,
     node_data=None
-    ):
+):
 
     global xml_cursor, xml_node_id_stack, xml_node_element_stack
 
@@ -1539,7 +1956,19 @@ def xml_save_node(
     if node_attrs != None and len(node_attrs) == 0:
         node_attrs = None
 
-    __execute(xml_cursor, """INSERT INTO xmldata (node_parent_id, node_id_path, node_element_path, node_level, node_element, node_attrs, node_data) VALUES (?,?,?,?,?,?,?)""", (node_parent_id, node_id_path, node_element_path, node_level, node_element, node_attrs, node_data)) #node_attr_key, node_attr_value, node_type,
+    __execute(xml_cursor, """
+        INSERT INTO xmldata
+        (node_parent_id, node_id_path, node_element_path, node_level, node_element, node_attrs, node_data)
+        VALUES (?,?,?,?,?,?,?)
+    """, (
+        node_parent_id,
+        node_id_path,
+        node_element_path,
+        node_level,
+        node_element,
+        node_attrs,
+        node_data
+    ))
 
     # print("saving node", xml_cursor.lastrowid, node_parent_id #, node_type)
     return xml_cursor.lastrowid
@@ -1551,7 +1980,7 @@ def start_element(name, attrs):
     # xml_count = xml_count + 1
     # print("\r Elements: ", xml_count, end=' ')
 
-    node_id = xml_save_node(node_element = name, node_attrs = attrs)
+    node_id = xml_save_node(node_element=name, node_attrs=attrs)
     xml_node_id_stack.append(str(node_id))
     xml_node_element_stack.append(name)
 
@@ -1560,6 +1989,7 @@ def start_element(name, attrs):
 
     # print("".join(xml_depth), name, attrs)
     xml_depth.append("  ")
+
 
 def end_element(name):
     global xml_in_cdata, xml_text, xml_depth, xml_node_id_stack, xml_cursor, xml_node_element_stack, xml_transcribed_counter, xml_filename
@@ -1571,17 +2001,25 @@ def end_element(name):
 
         if len(node_data) > 0:
             # update data in element node
-            __execute(xml_cursor, """UPDATE xmldata SET "node_data" = ? WHERE node_id = ?""", [node_data, node_id])
+            __execute(xml_cursor, """
+                UPDATE xmldata
+                SET "node_data" = ?
+                WHERE node_id = ?
+            """, [node_data, node_id])
 
         # save_xml_node(node_type = "DATA", node_data = node_data)
         # print("".join(xml_depth), node_data)
         del xml_text[:]
 
-    __execute(xml_cursor, "SELECT node_id_path, node_id, node_element_path, node_element, node_attrs FROM xmldata WHERE node_id = %s" % node_id)
+    __execute(xml_cursor, """
+        SELECT node_id_path, node_id, node_element_path, node_element, node_attrs
+        FROM xmldata
+        WHERE node_id = %s
+    """ % node_id)
     row = xml_cursor.fetchone()
 
-    node_id_path = row[0]+str(row[1])
-    node_element_path = row[2]+row[3]
+    node_id_path = row[0] + str(row[1])
+    node_element_path = row[2] + row[3]
     if row[4] != None:
         node_attrs = json.loads(row[4])
     else:
@@ -1591,9 +2029,14 @@ def end_element(name):
     if node_attrs != None:
         for key, value in node_attrs.items():
             # node attributes
-            data_by_element["attr:"+key] = value.strip()
+            data_by_element["attr:" + key] = value.strip()
 
-    __execute(xml_cursor, "SELECT node_element, node_data, node_id_path, node_element_path FROM xmldata WHERE node_id_path = '%s' ORDER BY node_id" % (".".join(xml_node_id_stack)))
+    __execute(xml_cursor, """
+        SELECT node_element, node_data, node_id_path, node_element_path
+        FROM xmldata
+        WHERE node_id_path = '%s'
+        ORDER BY node_id
+    """ % (".".join(xml_node_id_stack)))
 
     for row in xml_cursor.fetchall():
         node_element = row[0]
@@ -1624,9 +2067,15 @@ def end_element(name):
         for node_element in sorted(columns):
             xml_require_column(node_element)
 
-
-        __execute(xml_cursor, """INSERT INTO "xmldata.transcribed" (node_id_path, node_element_path, "%s") VALUES (?,?,%s)""" % ('","'.join(columns), ",".join(questionmarks)), data)
-        # print("INSERT", repr(data))
+        __execute(xml_cursor, """
+            INSERT INTO "xmldata.transcribed"
+            (node_id_path, node_element_path, "%s")
+            VALUES (?,?,%s)
+        """ % (
+            '","'.join(columns),
+            ",".join(questionmarks)),
+            data
+        )
         xml_transcribed_counter = xml_transcribed_counter + 1
         if xml_transcribed_counter % 10 == 0:
             print("\r ", xml_filename, xml_transcribed_counter, end=' ')
@@ -1634,15 +2083,18 @@ def end_element(name):
     xml_node_id_stack.pop()
     xml_node_element_stack.pop()
     xml_depth.pop()
-    # print("".join(depth), "/", name)
 
 # adds a column to the transcribed table if not exists
+
+
 def xml_require_column(name):
     global xml_transcribed_columns
 
     if xml_transcribed_columns == None:
         xml_transcribed_columns = []
-        __execute(xml_cursor, """PRAGMA table_info("xmldata.transcribed")""")
+        __execute(xml_cursor, """
+            PRAGMA table_info("xmldata.transcribed")
+        """)
         for row in xml_cursor.fetchall():
             xml_transcribed_columns.append(row[1].lower())
 
@@ -1650,9 +2102,13 @@ def xml_require_column(name):
         return
 
     xml_cursor2 = source_conn.cursor()
-    __execute(xml_cursor2, """ALTER TABLE "xmldata.transcribed" ADD COLUMN "%s" TEXT""" % name)
+    __execute(xml_cursor2, """
+        ALTER TABLE "xmldata.transcribed"
+        ADD COLUMN "{name}" TEXT
+    """.format(
+        name=name
+    ))
     xml_transcribed_columns.append(name.lower())
-    # print("""Added "xmldata.transcribed"."%s".""" % name)
     xml_cursor2.close()
 
 
@@ -1661,10 +2117,12 @@ def start_cdata():
 
     xml_in_cdata = True
 
+
 def end_cdata():
     global xml_in_cdata, xml_text, xml_depth
 
     xml_in_cdata = False
+
 
 def char_data(data):
     global xml_in_cdata, xml_text, xml_depth
@@ -1681,11 +2139,12 @@ def char_data(data):
 #         return
 #     xml_text.append(data.lstrip())
 
+
 def xml_to_source(
     basedir,         # basedir which is not saved
     filename,        # xml filename
-    name = None      # name in source
-    ):
+    name=None        # name in source
+):
     global xml_in_cdata, xml_cdata, xml_text, xml_depth, xml_node_id_stack, xml_node_element_stack, xml_cursor, xml_count
     global source_conn
     global xml_transcribed_columns, xml_transcribed_counter
@@ -1699,9 +2158,9 @@ def xml_to_source(
     xml_cursor = source_conn.cursor()
     xml_count = 0
 
-        # node_type TEXT NOT NULL,
-        # node_attr_key TEXT,
-        # node_attr_value TEXT,
+    # node_type TEXT NOT NULL,
+    # node_attr_key TEXT,
+    # node_attr_value TEXT,
 
     # print("Importing XML", repr(filename))
 
@@ -1727,13 +2186,13 @@ def xml_to_source(
     xml_filename = os.path.basename(filename)
 
     start_element(filepath, {
-            "path": os.path.dirname(filename),
-            "basedir": basedir,
-            "filepath": filepath,
-            "filename": xml_filename
-            })
+        "path": os.path.dirname(filename),
+        "basedir": basedir,
+        "filepath": filepath,
+        "filename": xml_filename
+    })
 
-    with open(filename,'rb') as inf:
+    with open(filename, 'rb') as inf:
         p.ParseFile(inf)
 
     # we don't right an end element here, so we don't have this in our
@@ -1741,7 +2200,8 @@ def xml_to_source(
 
     print("\r ", xml_filename, xml_transcribed_counter)
 
-def merge_source (filename):
+
+def merge_source(filename):
     global source_conn
 
     print("Notice: Merging source:", filename)
@@ -1756,40 +2216,50 @@ def merge_source (filename):
     sql2 = conn.cursor()
     sql3 = source_conn.cursor()
 
-    select = """SELECT origin_type, origin_database_name, origin_table_name, source_name, source_table_name FROM origin"""
-
-    __execute(sql, select)
+    __execute(sql, """
+        SELECT origin_type, origin_database_name, origin_table_name, source_name, source_table_name
+        FROM origin
+    """)
 
     for row in sql.fetchall():
         source_name = row[3]
         source_table_name = row[4]
         # __merge_table
-        print("Notice: Merging table", source_table_name, ":", row[0], row[1], row[2])
+        print("Notice: Merging table", source_table_name,
+              ":", row[0], row[1], row[2])
 
-        table_def = schema["tables"][source_name+"."+source_table_name]
+        table_def = schema["tables"][source_name + "." + source_table_name]
 
         __create_table_in_source(
-            origin_database_name = row[1],
-            origin_type = row[0],
-            source_name = source_name,
-            origin_table_name = row[2],
-            table_def = table_def,
-            source_table_name = source_table_name
-            )
+            origin_database_name=row[1],
+            origin_type=row[0],
+            source_name=source_name,
+            origin_table_name=row[2],
+            table_def=table_def,
+            source_table_name=source_table_name
+        )
 
         short_schema = {
             "tables": {}
-            }
+        }
         short_schema["tables"] = {}
         short_schema["tables"][source_table_name] = table_def
 
         __copy_data_to_source(conn, short_schema)
 
         # now we need to copy filestore and file
-        select = """SELECT filestore_id, unique_id, original_filename, mimetype, filesize, url, filename, data FROM filestore WHERE filestore_id IN (SELECT filestore_id FROM "file" WHERE source_name='%s' and source_table_name='%s')""" % (source_name, source_table_name)
-        __execute(sql2, select)
-
-        insert = "INSERT INTO filestore (unique_id, original_filename, mimetype, filesize, url, filename, data) VALUES (?,?,?,?,?,?,?)"
+        __execute(sql2, """
+            SELECT filestore_id, unique_id, original_filename, mimetype, filesize, url, filename, data
+            FROM filestore
+            WHERE filestore_id IN (
+                    SELECT filestore_id
+                    FROM "file"
+                    WHERE source_name = '{source_name}'
+                    AND source_table_name = '{source_table_name}')
+        """.format(
+            source_name=source_name,
+            source_table_name=source_table_name
+        ))
 
         filestore_id_map = {}
 
@@ -1797,50 +2267,74 @@ def merge_source (filename):
             filestore_id = _row[0]
 
             bindings = []
-            for idx in range(1,8):
+            for idx in range(1, 8):
                 bindings.append(_row[idx])
 
-            __execute(sql3, insert, bindings)
+            __execute(sql3, """
+                INSERT INTO filestore
+                    (unique_id, original_filename, mimetype, filesize, url, filename, data)
+                VALUES (?,?,?,?,?,?,?)
+            """, bindings)
             filestore_id_map[filestore_id] = sql3.lastrowid
 
         # delete files from the same source and an earlier merge
-        __execute(sql3, """DELETE FROM file WHERE source_name='%s' AND source_table_name='%s' """ %(source_name, source_table_name))
+        __execute(sql3, """
+            DELETE FROM file
+            WHERE source_name = '{source_name}'
+            AND source_table_name = '{source_table_name}'
+        """.format(
+            source_name=source_name,
+            source_table_name=source_table_name
+        ))
 
-        select = """SELECT filestore_id, source_name, source_table_name, source_column_name, source_unique_id, origin_url, eas_id, eas_root_id, file_version FROM "file" WHERE source_name='%s' and source_table_name='%s'""" % (source_name, source_table_name)
+        __execute(sql2, """
+            SELECT filestore_id, source_name, source_table_name, source_column_name, source_unique_id, origin_url, eas_id, eas_root_id, file_version
+            FROM file
+            WHERE source_name = '{source_name}'
+            AND source_table_name = '{source_table_name}'
+        """.format(
+            source_name=source_name,
+            source_table_name=source_table_name
+        ))
 
-        insert = "INSERT INTO file (filestore_id, source_name, source_table_name, source_column_name, source_unique_id, origin_url, eas_id, eas_root_id, file_version) VALUES (?,?,?,?,?,?,?,?,?)"
-
-        __execute(sql2, select)
         files = 0
         for _row in sql2.fetchall():
             bindings = []
             bindings.append(filestore_id_map[_row[0]])
-            for idx in range(1,9):
+            for idx in range(1, 9):
                 bindings.append(_row[idx])
-            __execute(sql3, insert, bindings)
+            __execute(sql3, """
+                INSERT INTO file
+                    (filestore_id, source_name, source_table_name, source_column_name, source_unique_id, origin_url, eas_id, eas_root_id, file_version)
+                VALUES (?,?,?,?,?,?,?,?,?)
+            """, bindings)
             files += 1
 
         if files > 0:
             print("Notice:", files, "files copied.")
+
+
+###########################################
+
+# ADHH
 
 # import an sql schema that is saved in multiple xml file
 # each file represents a table
 # all top level nodes are <item> (representing one row)
 # all nodes below the <item> node represent the data in a column in the current row
 # all other nodes are ignored
+
+
 def adhh_xml_to_source(
-    basedir,         # basedir which is not saved
-    filename,        # xml filename
-    name = None      # name in source
-    ):
-    # global xml_in_cdata, xml_cdata, xml_text, xml_depth, xml_node_id_stack, xml_node_element_stack, xml_cursor, xml_count
+    basedir,   # basedir which is not saved
+    filename,  # xml filename
+    name=None  # name in source
+):
     global source_conn
-    # global xml_transcribed_columns, xml_transcribed_counter
-    # global xml_filename
 
     adhh_cursor = source_conn.cursor()
 
-    print("Info: parse ADHH from XML:",filename,"in",basedir)
+    print("Info: parse ADHH from XML:", filename, "in", basedir)
 
     def escape_value(value):
         return value.replace("\"", "\"\"")
@@ -1849,7 +2343,7 @@ def adhh_xml_to_source(
     try:
         root = ET.XML(open(basedir + "/" + os.path.basename(filename)).read())
     except Exception as e:
-        print("Error: could not parse XML from",filename+":",e)
+        print("Error: could not parse XML from", filename + ":", e)
         return
 
     if root.tag != "items":
@@ -1865,34 +2359,51 @@ def adhh_xml_to_source(
 
     column_names = []
     try:
-        cmd = "SELECT * FROM \"" + table_name + "\" LIMIT 1"
-        # print("SQL:",cmd)
-        res = __execute(adhh_cursor, cmd)
+        res = __execute(adhh_cursor, """
+            SELECT *
+            FROM "{table_name}"
+            LIMIT 1
+        """.format(
+            table_name=table_name
+        ))
         column_names = [d[0] for d in res.description]
+
         print("Notice: append to existing table '" + table_name + "'")
+
     except:
         print("Notice: new table '" + table_name + "'")
-        # if the table does not exist yet, create it before inserting the first row
-        cmd = "CREATE TABLE \"" + table_name + "\" (pkey INTEGER PRIMARY KEY)"
-        # print("SQL:",cmd)
-        __execute(adhh_cursor, cmd)
 
-        cmd = """INSERT INTO origin
-                (origin_database_name, origin_type, origin_table_name, source_name, source_table_name)
-                VALUES (?,?,?,?,?)"""
-        __execute(adhh_cursor, cmd, [os.path.abspath(filename), "adhh", table_name, table_name, table_name])
+        # if the table does not exist yet, create it before inserting the first row
+        __execute(adhh_cursor, """
+            CREATE TABLE "{table_name}" (pkey INTEGER PRIMARY KEY)
+        """.format(
+            table_name=table_name
+        ))
+
+        __execute(adhh_cursor, """
+            INSERT INTO origin
+            (origin_database_name, origin_type, origin_table_name, source_name, source_table_name)
+            VALUES (?,?,?,?,?)
+        """, [
+            os.path.abspath(filename),
+            "adhh",
+            table_name,
+            table_name,
+            table_name
+        ])
 
     inserted_rows = 0
     for i, item_node in enumerate(root):
         if item_node.tag != "item":
-            print("Error: invalid node",item_node.tag,"(expected 'item')")
+            print("Error: invalid node", item_node.tag, "(expected 'item')")
             return
 
         values = {}
         for sub_node in item_node:
             add_column = False
             if sub_node.tag != "column":
-                print("Error: invalid node",item_node.tag,"(expected 'column')")
+                print("Error: invalid node",
+                      item_node.tag, "(expected 'column')")
                 return
             if not "name" in sub_node.attrib:
                 print("Error: expected attribute 'name' in 'column' node")
@@ -1902,9 +2413,13 @@ def adhh_xml_to_source(
             if sub_node.attrib["name"] not in column_names:
                 column_names.append(sub_node.attrib["name"])
                 # add new columns
-                cmd = "ALTER TABLE \"" + table_name + "\" ADD COLUMN \"" + sub_node.attrib["name"] + "\" TEXT"
-                # print("SQL:",cmd)
-                __execute(adhh_cursor, cmd)
+                __execute(adhh_cursor, """
+                    ALTER TABLE "{table_name}"
+                    ADD COLUMN "{col_name}" TEXT
+                """.format(
+                    table_name=table_name,
+                    col_name=sub_node.attrib["name"]
+                ))
 
         # insert the values of this <item> node to the table row
         v = []
@@ -1918,22 +2433,27 @@ def adhh_xml_to_source(
             cmd += ") VALUES ("
             cmd += ", ".join(["?" for vt in v])
             cmd += ")"
-            # print("SQL:",cmd)
             __execute(adhh_cursor, cmd, [vt[1] for vt in v])
             inserted_rows += 1
 
-    print("Notice: Inserted",inserted_rows,"rows into table",table_name)
+    print("Notice: Inserted", inserted_rows, "rows into table", table_name)
+
+
+###########################################
+
+# MY SQL
 
 def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
     global source_conn
     schema = __sqlite_get_schema(source_conn)
     sql = source_conn.cursor()
-    if output=="-":
+    if output == "-":
         out = sys.stdout
     else:
         out = open(output, "wb")
 
     tables = schema["tables"]
+
     def write_out(s):
         out.write(s.encode("utf8"))
 
@@ -1946,12 +2466,12 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
         "INTEGER": "BIGINT",
         "DATETIME": "TIMESTAMP",
         "BLOB": "LONGBLOB"
-        }
+    }
 
     for (table_name, tb) in list(tables.items()):
         qms = []
         column_names = []
-        cmd = "CREATE TABLE \""+table_name+"\" (\n"
+        cmd = "CREATE TABLE \"" + table_name + "\" (\n"
         for idx, column in enumerate(tb["columns"]):
             if idx > 0:
                 cmd += ",\n"
@@ -1962,14 +2482,14 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
             else:
                 __type = "TEXT"
 
-
-            cmd += "   \""+column["name"]+"\" "+__type
-            column_names.append("\""+column["name"]+"\"")
+            cmd += "   \"" + column["name"] + "\" " + __type
+            column_names.append("\"" + column["name"] + "\"")
 
         cmd += "\n);\n"
         write_out(cmd)
 
-        select = """SELECT %s FROM "%s" """ % (",".join(column_names), table_name)
+        select = """SELECT %s FROM "%s" """ % (
+            ",".join(column_names), table_name)
 
         __execute(sql, select)
         for row in sql.fetchall():
@@ -1981,24 +2501,25 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
                 if item == None:
                     values.append("null")
                 elif isinstance(item, str):
-                    values.append("'"+(item.replace("'","''"))+"'")
+                    values.append("'" + (item.replace("'", "''")) + "'")
                 elif isinstance(item, int):
                     values.append(str(item))
                 elif isinstance(item, buffer):
 
                     # SPLIT BLOB into handlable chunks for mysql
                     # mysql has a server limit of 1MB for query packets
-                    if encode_blob_method == "base64": # requires mysql >= 5.6.1
+                    if encode_blob_method == "base64":  # requires mysql >= 5.6.1
                         s = str(item).encode("base64")
                         decode = "FROM_BASE64"
                     elif encode_blob_method == "hex":
                         s = str(item).encode("hex")
                         decode = "UNHEX"
                     else:
-                        raise Exception("Unknown encode_blob_method: "+encode_blob_method)
+                        raise Exception(
+                            "Unknown encode_blob_method: " + encode_blob_method)
 
                     if len(s) < blob_chunk_size:
-                        values.append(decode+"('"+s+"')")
+                        values.append(decode + "('" + s + "')")
                         continue
 
                     if where_clause == None:
@@ -2009,31 +2530,35 @@ def dump_mysql(output, encode_blob_method="hex", blob_chunk_size=50000):
                                 if column["name"] == pk:
                                     value = row[cidx]
                                     if value == None:
-                                        raise Exception("Primary Key Data not found for "+pk)
-                                    ands.append("\""+pk+"\"="+__value_to_unicode(value))
-                        where_clause = "WHERE "+" AND ".join(ands)
+                                        raise Exception(
+                                            "Primary Key Data not found for " + pk)
+                                    ands.append("\"" + pk + "\"=" +
+                                                __value_to_unicode(value))
+                        where_clause = "WHERE " + " AND ".join(ands)
 
                     cn = tb["columns"][idx]["name"]
                     for (cidx, chunk) in enumerate(__chunks(s, blob_chunk_size)):
                         if cidx == 0:
-                            values.append(decode+"('"+chunk+"')")
+                            values.append(decode + "('" + chunk + "')")
                         else:
-                            more_cmds.append("UPDATE \""+table_name+"\" SET \""+cn+"\" = \""+cn+"\"+"+decode+"('"+chunk+"') "+where_clause+";\n")
+                            more_cmds.append("UPDATE \"" + table_name + "\" SET \"" + cn + "\" = \"" +
+                                             cn + "\"+" + decode + "('" + chunk + "') " + where_clause + ";\n")
                 elif isinstance(item, int):
                     values.append(str(item))
                 elif isinstance(item, datetime.datetime):
                     values.append(str(item))
                 else:
-                    print("Warning: Unable to insert item", table_name, type(item))
+                    print("Warning: Unable to insert item",
+                          table_name, type(item))
 
-            cmd = "INSERT INTO \""+table_name+"\" VALUES ("+",".join(values)+");\n"
+            cmd = "INSERT INTO \"" + table_name + \
+                "\" VALUES (" + ",".join(values) + ");\n"
             write_out(cmd)
             if len(more_cmds) > 0:
                 for more_cmd in more_cmds:
                     write_out(more_cmd)
 
-
     write_out("COMMIT;\n")
-    if out!=sys.stdout:
+    if out != sys.stdout:
         out.close()
     print("Notice: Dumped current sqlite to mysql file: ", output)

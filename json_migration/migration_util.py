@@ -1,6 +1,7 @@
 # coding=utf8
 
 import sys
+import os
 import json
 import sqlite3
 import hashlib
@@ -8,7 +9,8 @@ from datetime import datetime, timedelta
 import urllib.request
 import traceback
 from six.moves.html_parser import HTMLParser
-from torch import le
+import gzip
+from inspect import currentframe, getframeinfo
 
 
 import_type_array_map = {
@@ -80,6 +82,27 @@ def init_info_log(start: datetime = None):
     init_logfile(INFO_LOG_FILE, start=datetime.now()
                  if start is None else start)
 
+
+def debugline():
+    frame = currentframe()
+    if frame is None:
+        return ''
+    frameinfo = getframeinfo(frame.f_back)
+    return '%s:%d' % (
+        os.path.basename(frameinfo.filename),
+        frameinfo.lineno
+    )
+
+
+def debugline():
+    frame = currentframe()
+    if frame is None:
+        return ''
+    frameinfo = getframeinfo(frame.f_back)
+    return '%s:%d' % (
+        os.path.basename(frameinfo.filename),
+        frameinfo.lineno
+    )
 
 def format_string_list(strings):
     """
@@ -451,7 +474,7 @@ def dumpjs(d: dict, indent=4):
     :return: pretty printed json string
     :rtype: str
     """
-    return json.dumps(d, indent=indent, sort_keys=True, cls=JsonWithSets)
+    return json.dumps(d, indent=indent, cls=JsonWithSets)
 
 
 def datetime_to_iso(d: datetime):
@@ -581,6 +604,33 @@ def check_image_url_reachable(url: str, verbose: bool = False):
         log_error('URL', url, 'unreachable, Error:', e)
         return False
 
+
+def save_json_to_gzip_file(outputfolder: str, filename: str, data: dict, compression: int) -> str:
+    """
+    save_json_to_gzip_file convert data to json string, save as compressed gzip file
+
+    :param outputfolder: target folder for json files
+    :type outputfolder: str
+    :param filename: filename of json file
+    :type filename: str
+    :param data: data to convert to json
+    :type data: dict
+    :param compression: gzip compression (1-9)
+    :type compression: int
+    :return: renamed filename
+    :rtype: str
+    """
+
+    # gzip compression
+    if compression > 9:
+        compression = 9
+
+    filename += '.gz'
+    with gzip.open('%s/%s' % (outputfolder, filename), 'wb', compresslevel=compression) as f:
+        f.write(dumpjs(data).encode('utf-8'))
+
+    return filename
+
 # -----------------------------
 
 
@@ -660,7 +710,7 @@ class ObjectPayloadManager(object):
 
         return False
 
-    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], batchnumber: int = 0, is_hierarchical: bool = False, version: int = 1):
+    def save_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], batchnumber: int = 0, is_hierarchical: bool = False, version: int = 1, compression: int = 0):
         """
         save_payloads save objects as json files, add payload names to manifest
 
@@ -682,6 +732,8 @@ class ObjectPayloadManager(object):
         :type is_hierarchical: bool, optional
         :param version: version of exported objects, defaults to 1. is ignored for checks if it is 0
         :type version: int, optional
+        :param compression: gzip compression (1-9), defaults to 0. 0 means no compression
+        :type compression: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -697,7 +749,8 @@ class ObjectPayloadManager(object):
                 ref_col,
                 batchsize,
                 refs,
-                version)
+                version,
+                compression=compression)
 
         all_objects = []
         for obj in self.export_objects[objecttype].values():
@@ -741,14 +794,15 @@ class ObjectPayloadManager(object):
                 filename,
                 'db',
                 manifest,
-                objecttype)
+                objecttype,
+                compression=compression)
 
             offset += batchsize
             batch += 1
 
         return manifest
 
-    def save_hierarchical_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], version: int = 1):
+    def save_hierarchical_payloads(self, manifest: dict, outputfolder: str, objecttype: str, ref_col: str, batchsize: int, refs: list = [], version: int = 1, compression: int = 0):
         """
         save_hierarchical_payloads save objects as json files, add payload names to manifest
 
@@ -766,6 +820,8 @@ class ObjectPayloadManager(object):
         :type refs: list, optional
         :param version: version of exported objects, defaults to 1
         :type version: int, optional
+        :param compression: gzip compression (1-9), defaults to 0. 0 means no compression
+        :type compression: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -822,7 +878,8 @@ class ObjectPayloadManager(object):
                     filename,
                     'db',
                     manifest,
-                    objecttype)
+                    objecttype,
+                    compression=compression)
 
                 offset += batchsize
                 batch += 1
@@ -875,21 +932,23 @@ class ObjectPayloadManager(object):
         return tree_levels
 
     @classmethod
-    def merge_object(cls, new_obj: dict, old_obj: dict, top_level: bool = True):
+    def merge_object(cls, ref, new_obj: dict, old_obj: dict, path: list = []):
         """
         merge_object helper method to merge two objects with the same reference and different keys
 
+        :param ref: object reference (for debugging)
+        :type ref: str
         :param new_obj: object with new data
         :type new_obj: dict
         :param old_obj: old object
         :type old_obj: dict
-        :param top_level: for recursive call of function, defaults to True
-        :type top_level: bool, optional
+        :param path: for recursive call of function, defaults to [] (for debugging)
+        :type path: list, optional
         :raises Exception: Exception with information if merging failed
         :return: the merged object and if the object has been changed
         :rtype: dict, bool
         """
-        if top_level:
+        if len(path) == 0:
             if not '_objecttype' in new_obj:
                 raise Exception(
                     'could not merge objects: _objecttype missing in new obj')
@@ -910,9 +969,10 @@ class ObjectPayloadManager(object):
                 raise Exception(
                     'could not merge objects: %s missing in old obj' % old_objecttype)
 
-            old_obj[objecttype], updated = cls.merge_object(new_obj[objecttype],
+            old_obj[objecttype], updated = cls.merge_object(ref,
+                                                            new_obj[objecttype],
                                                             old_obj[old_objecttype],
-                                                            top_level=False)
+                                                            path=[objecttype])
             return old_obj, updated
 
         updated = False
@@ -922,6 +982,8 @@ class ObjectPayloadManager(object):
 
         for obj_key in new_obj:
             new_v = new_obj[obj_key]
+            if new_v is None:
+                continue
 
             if obj_key in ['_version', '_version:auto_increment', 'lookup:_id']:
                 # if only the version or id lookup was changed/added, the object is not considered as updated
@@ -935,17 +997,12 @@ class ObjectPayloadManager(object):
 
             old_v = old_obj[obj_key]
 
-            if old_v is None:
-                if obj[obj_key] != old_v:
-                    obj[obj_key] = new_v
-                    updated = True
-                continue
-
             if isinstance(new_v, dict) and isinstance(old_v, dict):
                 obj[obj_key], _updated = cls.merge_object(
+                    ref,
                     new_v,
                     old_v,
-                    top_level=False)
+                    path=path + [obj_key])
                 if _updated:
                     updated = True
                 continue
@@ -964,6 +1021,10 @@ class ObjectPayloadManager(object):
 
                 obj[obj_key] = result_array
                 continue
+
+            if new_v != old_v:
+                obj[obj_key] = new_v
+                updated = True
 
         return obj, updated
 
@@ -1019,9 +1080,9 @@ class ObjectPayloadManager(object):
                       (objecttype, ref))
         old_obj = self.export_objects[objecttype][ref]
         new_obj, updated = self.merge_object(
+            ref,
             obj,
-            old_obj,
-            top_level=False)
+            old_obj)
         self.export_objects[objecttype][ref] = new_obj
 
         return 0, updated
@@ -1128,7 +1189,7 @@ class ObjectPayloadManager(object):
             self.export_objects[objecttype] = {}
 
     @classmethod
-    def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None):
+    def save_batch(cls, payload: list, outputfolder: str, filename: str, import_type: str, manifest: dict, objecttype: str = None, compression: int = 0):
         """
         save_batch save the batch of objects/basetypes as json files
 
@@ -1144,6 +1205,8 @@ class ObjectPayloadManager(object):
         :type manifest: dict
         :param objecttype: objecttype if the payload does not contain basetypes, defaults to None
         :type objecttype: str, optional
+        :param compression: gzip compression (1-9), defaults to 0. 0 means no compression
+        :type compression: int, optional
         :return: manifest
         :rtype: dict
         """
@@ -1154,9 +1217,12 @@ class ObjectPayloadManager(object):
         if objecttype is not None:
             data['objecttype'] = objecttype
 
-        f = open('%s/%s' % (outputfolder, filename), 'w')
-        f.write(dumpjs(data))
-        f.close()
+        if compression < 1:
+            with open('%s/%s' % (outputfolder, filename), 'w') as f:
+                f.write(dumpjs(data))
+        else:
+            filename = save_json_to_gzip_file(
+                outputfolder, filename, data, compression)
 
         manifest['payloads'].append(filename)
         if objecttype is None:
