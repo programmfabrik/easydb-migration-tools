@@ -383,7 +383,7 @@ def parse_line(line):
                 continue
 
         if c == DELIMITER_FALLBACK:
-            if i < len(line):
+            if i < len(line) - 1:
                 if line[i + 1] in KNOWN_SUB_FIELDS:
                     res.append(part.strip())
                     part = ''
