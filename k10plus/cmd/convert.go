@@ -23,12 +23,12 @@ import (
 var schemaSQL string
 
 type Convert struct {
-	SourceDir string `help:"Directory containing the pica files"`
-	Sqlite    string `help:"Path to sqlite file"`
+	SourceDir   string `help:"Directory containing the pica files"`
+	Sqlite      string `help:"Path to sqlite file"`
+	MaxParallel int    `help:"Number of concurrent workers to deploy. 0 uses the number of available CPUs." default:"1"`
 }
 
 func (c *Convert) Run(kctx *kong.Context) (err error) {
-	golib.Pln("scanning %q for .pp files", c.SourceDir)
 	db, err := sqlpro.Open(sqlpro.SQLITE3, c.Sqlite)
 	if err != nil {
 		return err
@@ -46,20 +46,32 @@ func (c *Convert) Run(kctx *kong.Context) (err error) {
 		return err
 	}
 
-	fsys := os.DirFS(c.SourceDir)
+	cm := golib.ConcurrentManager(c.MaxParallel)
+	golib.Pln("scanning %q for .pp files with %d workers", c.SourceDir, cm.Workers())
 
+	fsys := os.DirFS(c.SourceDir)
 	err = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if strings.HasSuffix(path, ".pp") {
-			err = c.Import(ctx, db, filepath.Join(c.SourceDir, path))
-			if err != nil {
-				return err
-			}
+		if !strings.HasSuffix(path, ".pp") {
+			return nil
 		}
+		func(path string) {
+			cm.Run(func(runId int) error {
+				err = c.Import(ctx, db, filepath.Join(c.SourceDir, path))
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+		}(path)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	err = cm.Wait()
 	if err != nil {
 		return err
 	}
@@ -170,14 +182,25 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 }
 
 func (itm item) save(ctx context.Context, db *sqlpro.DB, f *file) (err error) {
-	err = db.InsertContext(ctx, "item", &itm)
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+	err = tx.InsertContext(ctx, "item", &itm)
 	if err != nil {
 		return err
 	}
 	for _, v := range itm.values {
 		v.ItemID = itm.ID
 	}
-	err = db.InsertBulkContext(ctx, "value", itm.values)
+	err = tx.InsertBulkContext(ctx, "value", itm.values)
 	if err != nil {
 		return err
 	}
