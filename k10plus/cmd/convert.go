@@ -33,6 +33,7 @@ func (c *Convert) Run(kctx *kong.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 	err = db.DB().Ping()
 	if err != nil {
 		return fmt.Errorf("unable to ping db: %w", err)
