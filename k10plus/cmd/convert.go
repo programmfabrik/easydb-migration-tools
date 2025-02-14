@@ -14,7 +14,6 @@ import (
 	"github.com/alecthomas/kong"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/programmfabrik/golib"
-	"github.com/programmfabrik/sqlpro"
 
 	_ "embed"
 )
@@ -106,6 +105,7 @@ type value struct {
 
 func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) error {
 
+	golib.Pln("importing %q...", f.Filepath)
 	start := time.Now()
 
 	// add file to database
