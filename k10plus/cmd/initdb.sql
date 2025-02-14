@@ -8,12 +8,6 @@ CREATE TABLE IF NOT EXISTS "k10_item" (
     "file_id"   INTEGER NOT NULL,
     FOREIGN KEY("file_id") REFERENCES "k10_file"("id")
 );
-CREATE TABLE IF NOT EXISTS "k10_record" (
-    --SERIAL--
-    "identifier" TEXT UNIQUE,
-    "file_id"   INTEGER NOT NULL,
-    FOREIGN KEY("file_id") REFERENCES "k10_file"("id")
-);
 CREATE TABLE IF NOT EXISTS "k10_value" (
     --SERIAL--
     "item_id"   INTEGER NOT NULL,

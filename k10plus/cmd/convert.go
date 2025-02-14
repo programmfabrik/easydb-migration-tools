@@ -51,12 +51,7 @@ func (c *Convert) Run(kctx *kong.Context) (err error) {
 
 	ctx := context.Background()
 
-	switch driver {
-	case sqlpro.SQLITE3:
-		schemaSQL = strings.ReplaceAll(schemaSQL, "--SERIAL--", `"id" INTEGER PRIMARY KEY AUTOINCREMENT,`)
-	case sqlpro.POSTGRES:
-		schemaSQL = strings.ReplaceAll(schemaSQL, "--SERIAL--", `"id" SERIAL PRIMARY KEY,`)
-	}
+	schemaSQL = replaceSerial(string(db.Driver), schemaSQL)
 
 	err = db.ExecContext(ctx, schemaSQL)
 	if err != nil {
@@ -121,14 +116,30 @@ type value struct {
 	Wert      string `db:"wert"`
 }
 
-func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) error {
+func replaceSerial(driver, schemaSQL string) string {
+	switch driver {
+	case sqlpro.SQLITE3:
+		schemaSQL = strings.ReplaceAll(schemaSQL, "--SERIAL--", `"id" INTEGER PRIMARY KEY AUTOINCREMENT,`)
+	case sqlpro.POSTGRES:
+		schemaSQL = strings.ReplaceAll(schemaSQL, "--SERIAL--", `"id" SERIAL PRIMARY KEY,`)
+	}
+	return schemaSQL
+}
+
+func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) (err error) {
 
 	golib.Pln("importing %q...", filepath)
 	start := time.Now()
 
+	defer func() {
+		if err != nil {
+			golib.Pln("error: %s", err.Error())
+		}
+	}()
+
 	// add file to database
 	f := file{}
-	err := db.QueryContext(ctx, &f, `SELECT * FROM "k10_file" WHERE "filepath" = ?`, filepath)
+	err = db.QueryContext(ctx, &f, `SELECT * FROM "k10_file" WHERE "filepath" = ?`, filepath)
 	if err != nil {
 		if err != sqlpro.ErrQueryReturnedZeroRows {
 			return err
@@ -148,13 +159,19 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 	// Ensure the file is closed when we're done.
 	defer file.Close()
 
-	cols, err := getColumns(db, "k10_record")
-	if err != nil {
-		return err
-	}
 	c.columns = map[string]bool{}
-	for _, col := range cols {
-		c.columns[col] = true
+	tbs, err := getTables(db)
+	for _, tb := range tbs {
+		if !strings.HasPrefix(tb, "k10_record") {
+			continue
+		}
+		cols, err := getColumns(db, tb)
+		if err != nil {
+			return err
+		}
+		for _, col := range cols {
+			c.columns[col] = true
+		}
 	}
 
 	// Create a new Scanner for the file.
@@ -253,7 +270,7 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 	cols := map[string]bool{}
 	for _, v := range itm.values {
 		col := v.Feld + v.Unterfeld
-		if !cols[col] {
+		if !cols[col] && len(cols) < 1580 {
 			cols[col] = true
 		}
 		rec[col] = v.Wert
@@ -264,22 +281,34 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 		_, ok := c.columns[col]
 		if !ok {
 			c.lck.Lock()
-			err = db.ExecContext(ctx, `ALTER TABLE "k10_record" ADD COLUMN IF NOT EXISTS `+db.Esc(col)+` TEXT`)
+			appendix := col[0:2] // first 0 field names
+			err = createRecordTable(ctx, db, appendix)
+			if err != nil {
+				c.lck.Unlock()
+				return err
+			}
+			err = db.ExecContext(ctx, `ALTER TABLE "k10_record_`+appendix+`"
+				ADD COLUMN IF NOT EXISTS `+db.Esc(col)+` TEXT`)
 			if err != nil {
 				c.lck.Unlock()
 				return err
 			}
 			c.lck.Unlock()
 			c.columns[col] = true
-			golib.Pln(`added "k10_record".%q`, col)
+			golib.Pln(`added "k10_record_%s".%q`, appendix, col)
 		}
 	}
-
-	sql := `INSERT INTO "k10_record"("file_id","identifier"`
-	sqlValues := ""
+	sql := map[string]string{} // map[appendix]sqlCmds
+	sqlValues := map[string]string{}
 	for col := range cols {
-		sql += `,` + db.Esc(col)
-		sqlValues += `,` + db.EscValue(rec[col])
+		appendix := col[0:2]
+		_, ok := sql[appendix]
+		if !ok {
+			sql[appendix] = `INSERT INTO "k10_record_` + appendix + `"("file_id","identifier"`
+			sqlValues[appendix] = ""
+		}
+		sql[appendix] += `,` + db.Esc(col)
+		sqlValues[appendix] += `,` + db.EscValue(rec[col])
 	}
 	idf := rec["003@0"]
 	if idf == "" {
@@ -287,11 +316,12 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 	} else {
 		idf = db.EscValue(idf)
 	}
-
-	sql += ") VALUES (" + strconv.Itoa(f.ID) + "," + idf + sqlValues + ")"
-	err = db.ExecContext(ctx, sql)
-	if err != nil {
-		return err
+	for app, sqlS := range sql {
+		sqlS += ") VALUES (" + strconv.Itoa(f.ID) + "," + idf + sqlValues[app] + ")"
+		err = db.ExecContext(ctx, sqlS)
+		if err != nil {
+			return err
+		}
 	}
 	f.itemCount++
 	if f.itemCount%100 == 10_000 {
@@ -299,6 +329,18 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 	}
 	// golib.Pln("item %d -- %d values", itm.ID, len(itm.values))
 	return nil
+}
+
+func createRecordTable(ctx context.Context, db *sqlpro.DB, appendix string) error {
+	schemaSQL := fmt.Sprintf(`
+	CREATE TABLE IF NOT EXISTS "k10_record_%s" (
+		--SERIAL--
+		"identifier" TEXT UNIQUE,
+		"file_id"   INTEGER NOT NULL,
+		FOREIGN KEY("file_id") REFERENCES "k10_file"("id")
+	);
+	`, appendix)
+	return db.ExecContext(ctx, replaceSerial(string(db.Driver), schemaSQL))
 }
 
 // getColumns returns the list of column names for the given table.
@@ -311,4 +353,25 @@ func getColumns(db *sqlpro.DB, tableName string) ([]string, error) {
 	}
 	defer rows.Close()
 	return rows.Columns()
+}
+
+// getTables returns a list of table names depending on the driver.
+func getTables(db *sqlpro.DB) ([]string, error) {
+	var query string
+	switch db.Driver {
+	case sqlpro.SQLITE3:
+		// Exclude internal SQLite tables
+		query = `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';`
+	case sqlpro.POSTGRES:
+		// Retrieves tables from the public schema in PostgreSQL
+		query = `SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public';`
+	default:
+		return nil, fmt.Errorf("unsupported driver: %s", db.Driver)
+	}
+	tables := []string{}
+	err := db.Query(&tables, query)
+	if err != nil {
+		return nil, err
+	}
+	return tables, nil
 }
