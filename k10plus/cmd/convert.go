@@ -24,12 +24,16 @@ var schemaSQL string
 
 type Convert struct {
 	SourceDir   string `help:"Directory containing the pica files"`
-	Sqlite      string `help:"Path to sqlite file"`
+	DSN         string `help:"DSN to connect to database. Use sqlite3:<file.sqlite> or postgres:host=localhost port=5432 dbname=apitest password=egal sslmode=disable to connect."`
 	MaxParallel int    `help:"Number of concurrent workers to deploy. 0 uses the number of available CPUs." default:"1"`
 }
 
 func (c *Convert) Run(kctx *kong.Context) (err error) {
-	db, err := sqlpro.Open(sqlpro.SQLITE3, c.Sqlite)
+	driver, dsn, found := strings.Cut(c.DSN, ":")
+	if !found {
+		return fmt.Errorf("dns malformed")
+	}
+	db, err := sqlpro.Open(driver, dsn)
 	if err != nil {
 		return err
 	}
@@ -38,9 +42,16 @@ func (c *Convert) Run(kctx *kong.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("unable to ping db: %w", err)
 	}
-	golib.Pln("connected to sqlite %q", c.Sqlite)
+	golib.Pln("connected to db %q", c.DSN)
 
 	ctx := context.Background()
+
+	switch driver {
+	case sqlpro.SQLITE3:
+		schemaSQL = strings.ReplaceAll(schemaSQL, "--SERIAL--", `"id" INTEGER PRIMARY KEY AUTOINCREMENT,`)
+	case sqlpro.POSTGRES:
+		schemaSQL = strings.ReplaceAll(schemaSQL, "--SERIAL--", `"id" SERIAL PRIMARY KEY,`)
+	}
 
 	err = db.ExecContext(ctx, schemaSQL)
 	if err != nil {
@@ -112,13 +123,13 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 
 	// add file to database
 	f := file{}
-	err := db.QueryContext(ctx, &f, `SELECT * FROM "file" WHERE "filepath" = ?`, filepath)
+	err := db.QueryContext(ctx, &f, `SELECT * FROM "k10_file" WHERE "filepath" = ?`, filepath)
 	if err != nil {
 		if err != sqlpro.ErrQueryReturnedZeroRows {
 			return err
 		}
 		f.Filepath = filepath
-		err = db.InsertContext(ctx, "file", &f)
+		err = db.InsertContext(ctx, "k10_file", &f)
 		if err != nil {
 			return err
 		}
@@ -195,14 +206,17 @@ func (itm item) save(ctx context.Context, db *sqlpro.DB, f *file) (err error) {
 			tx.Commit()
 		}
 	}()
-	err = tx.InsertContext(ctx, "item", &itm)
+	err = tx.InsertContext(ctx, "k10_item", &itm)
 	if err != nil {
 		return err
+	}
+	if itm.ID == 0 {
+		panic("unable to read back item id")
 	}
 	for _, v := range itm.values {
 		v.ItemID = itm.ID
 	}
-	err = tx.InsertBulkContext(ctx, "value", itm.values)
+	err = tx.InsertBulkContext(ctx, "k10_value", itm.values)
 	if err != nil {
 		return err
 	}
