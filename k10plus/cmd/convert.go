@@ -8,7 +8,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -26,6 +28,9 @@ type Convert struct {
 	SourceDir   string `help:"Directory containing the pica files"`
 	DSN         string `help:"DSN to connect to database. Use sqlite3:<file.sqlite> or postgres:host=localhost port=5432 dbname=apitest password=egal sslmode=disable to connect."`
 	MaxParallel int    `help:"Number of concurrent workers to deploy. 0 uses the number of available CPUs." default:"1"`
+	Records     bool   `help:"If set, create k10_record table with colunns for each feld+unterfeld." default:"true"`
+	columns     map[string]bool
+	lck         sync.Mutex
 }
 
 func (c *Convert) Run(kctx *kong.Context) (err error) {
@@ -143,6 +148,15 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 	// Ensure the file is closed when we're done.
 	defer file.Close()
 
+	cols, err := getColumns(db, "k10_record")
+	if err != nil {
+		return err
+	}
+	c.columns = map[string]bool{}
+	for _, col := range cols {
+		c.columns[col] = true
+	}
+
 	// Create a new Scanner for the file.
 	scanner := bufio.NewScanner(file)
 
@@ -156,7 +170,7 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 		switch {
 		case line == DELIMITER_OBJ:
 			if itm != nil {
-				err = itm.save(ctx, db, &f)
+				err = c.save(ctx, db, itm, &f)
 				if err != nil {
 					return err
 				}
@@ -172,7 +186,7 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 			// rest: wert
 			for _, val := range parts[1:] {
 				itm.values = append(itm.values, &value{
-					Feld:      parts[0],
+					Feld:      strings.TrimSpace(parts[0]),
 					Unterfeld: val[0:1],
 					Wert:      val[1:],
 				})
@@ -184,7 +198,7 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 		return fmt.Errorf("Error reading file: %w", err)
 	}
 	if itm != nil {
-		err = itm.save(ctx, db, &f)
+		err = c.save(ctx, db, itm, &f)
 		if err != nil {
 			return err
 		}
@@ -194,7 +208,16 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) er
 	return nil
 }
 
-func (itm item) save(ctx context.Context, db *sqlpro.DB, f *file) (err error) {
+func (c *Convert) save(ctx context.Context, db *sqlpro.DB, itm *item, f *file) (err error) {
+	if c.Records {
+		return c.saveRecord(ctx, db, itm, f)
+	} else {
+		return c.saveValues(ctx, db, itm, f)
+	}
+}
+
+func (c *Convert) saveValues(ctx context.Context, db *sqlpro.DB, itm *item, f *file) (err error) {
+
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -223,4 +246,69 @@ func (itm item) save(ctx context.Context, db *sqlpro.DB, f *file) (err error) {
 	f.itemCount++
 	// golib.Pln("item %d -- %d values", itm.ID, len(itm.values))
 	return nil
+}
+
+func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *file) (err error) {
+	rec := map[string]string{}
+	cols := map[string]bool{}
+	for _, v := range itm.values {
+		col := v.Feld + v.Unterfeld
+		if !cols[col] {
+			cols[col] = true
+		}
+		rec[col] = v.Wert
+	}
+
+	// make sure all columns exist
+	for col := range cols {
+		_, ok := c.columns[col]
+		if !ok {
+			c.lck.Lock()
+			err = db.ExecContext(ctx, `ALTER TABLE "k10_record" ADD COLUMN IF NOT EXISTS `+db.Esc(col)+` TEXT`)
+			if err != nil {
+				c.lck.Unlock()
+				return err
+			}
+			c.lck.Unlock()
+			c.columns[col] = true
+			golib.Pln(`added "k10_record".%q`, col)
+		}
+	}
+
+	sql := `INSERT INTO "k10_record"("file_id","identifier"`
+	sqlValues := ""
+	for col := range cols {
+		sql += `,` + db.Esc(col)
+		sqlValues += `,` + db.EscValue(rec[col])
+	}
+	idf := rec["003@0"]
+	if idf == "" {
+		idf = "NULL"
+	} else {
+		idf = db.EscValue(idf)
+	}
+
+	sql += ") VALUES (" + strconv.Itoa(f.ID) + "," + idf + sqlValues + ")"
+	err = db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+	f.itemCount++
+	if f.itemCount%100 == 10_000 {
+		golib.Pln("%s: %d", f.Filepath, f.itemCount)
+	}
+	// golib.Pln("item %d -- %d values", itm.ID, len(itm.values))
+	return nil
+}
+
+// getColumns returns the list of column names for the given table.
+func getColumns(db *sqlpro.DB, tableName string) ([]string, error) {
+	// LIMIT 0 returns no rows but lets us inspect the columns.
+	query := fmt.Sprintf("SELECT * FROM %s LIMIT 0", tableName)
+	rows, err := db.DB().Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return rows.Columns()
 }
