@@ -21,6 +21,9 @@ import (
 	_ "embed"
 )
 
+const K10_ID_FELD string = "003@"
+const K10_ID_FELD_UNTERFELD string = "003@0"
+
 //go:embed initdb.sql
 var schemaSQL string
 
@@ -158,8 +161,9 @@ type file struct {
 }
 
 type item struct {
-	ID     int `db:"id,pk,omitempty"`
-	FileID int `db:"file_id"`
+	ID     int    `db:"id,pk,omitempty"`
+	FileID int    `db:"file_id"`
+	ItemID string `db:"item_id"`
 	values []*value
 }
 
@@ -186,7 +190,20 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, fp string) (err err
 	if c.SingleFiles != "" {
 		dbFile := filepath.Base(fp[0:len(fp)-len(filepath.Ext(fp))]) + ".sqlite"
 		dbFilepath := filepath.Join(c.SingleFiles, dbFile)
-		os.Remove(dbFilepath)
+		_, err := os.Stat(dbFilepath)
+		if err == nil {
+			// file exists, check if we have a "-journal" file in which case we continue
+			_, err = os.Stat(dbFilepath + "-journal")
+			if err == nil {
+				golib.Pln("%q-journal exists, removing .sqlite file and redo", dbFilepath)
+				os.Remove(dbFilepath)
+			} else {
+				// no -journal file, assume .pp file is imported
+				golib.Pln("%q exists, skipping", dbFilepath)
+				return nil
+			}
+		}
+
 		db, err = c.openDb(sqlpro.SQLITE3, dbFilepath)
 		if err != nil {
 			return fmt.Errorf("unable to open db file %q: %w", dbFilepath, err)
@@ -253,12 +270,20 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, fp string) (err err
 			// 0 : feld
 			// 1 buchstabe: unterfeld
 			// rest: wert
+			feld := strings.TrimSpace(parts[0])
 			for _, val := range parts[1:] {
+				if len(val) < 2 {
+					golib.Pln("%q: feld %q value: %q skipping line %q", f.Filepath, feld, val, line)
+					continue
+				}
 				itm.values = append(itm.values, &value{
-					Feld:      strings.TrimSpace(parts[0]),
+					Feld:      feld,
 					Unterfeld: val[0:1],
 					Wert:      val[1:],
 				})
+			}
+			if feld == K10_ID_FELD {
+				itm.ItemID = itm.values[len(itm.values)-1].Wert
 			}
 		}
 	}
@@ -376,7 +401,7 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 		sql[appendix] += `,` + db.Esc(col)
 		sqlValues[appendix] += `,` + db.EscValue(rec[col])
 	}
-	idf := rec["003@0"]
+	idf := rec[K10_ID_FELD_UNTERFELD]
 	if idf == "" {
 		idf = "NULL"
 	} else {
