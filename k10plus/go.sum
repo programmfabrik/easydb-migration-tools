@@ -55,6 +55,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/programmfabrik/golib v0.0.0-20250206064248-4d6f38d1054e h1:bITgoWtsxdCQt4WrehKd4LuwRBpqY1jfZXHVVqNeo/U=
 github.com/programmfabrik/golib v0.0.0-20250206064248-4d6f38d1054e/go.mod h1:6G0YDKVvweb28toc3ENmLHpNEKuN00XEB47o5lbbwOk=
+github.com/programmfabrik/golib v0.0.0-20250215070511-9e16317dfea6 h1:MJTVLqR1+3QP9SdOxAkXsVYNv6oO0B/klgeM0VQSTIk=
+github.com/programmfabrik/golib v0.0.0-20250215070511-9e16317dfea6/go.mod h1:6G0YDKVvweb28toc3ENmLHpNEKuN00XEB47o5lbbwOk=
 github.com/programmfabrik/sqlpro v0.0.0-20250209204827-a0b8106ccf7a h1:CtjRnDCORyNr1AV1rH7gxIF6u2B2g+IRHCoH19Tnvbg=
 github.com/programmfabrik/sqlpro v0.0.0-20250209204827-a0b8106ccf7a/go.mod h1:OoF+9Wa6HlAOr8b28xo0hfNIds8iPTWmxyekIMdYask=
 github.com/programmfabrik/sqlpro v0.0.0-20250214100246-be7c988a229b h1:e6wjIYIkA8hUU/Bxo0Da301rcYj71n6PdpusGBxvNU8=

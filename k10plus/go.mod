@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/alecthomas/kong v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.24
-	github.com/programmfabrik/golib v0.0.0-20250206064248-4d6f38d1054e
+	github.com/programmfabrik/golib v0.0.0-20250215070511-9e16317dfea6
 	github.com/programmfabrik/sqlpro v0.0.0-20250214101316-0ae0920c561f
 )
 
