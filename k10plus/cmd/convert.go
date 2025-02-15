@@ -28,34 +28,83 @@ type Convert struct {
 	SourceDir   string `help:"Directory containing the pica files"`
 	DSN         string `help:"DSN to connect to database. Use sqlite3:<file.sqlite> or postgres:host=localhost port=5432 dbname=apitest password=egal sslmode=disable to connect."`
 	MaxParallel int    `help:"Number of concurrent workers to deploy. 0 uses the number of available CPUs." default:"1"`
-	Records     bool   `help:"If set, create k10_record table with colunns for each feld+unterfeld." default:"true"`
+	Records     bool   `help:"If set, create k10_record table with colunns for each feld+unterfeld. This is not supported for --single-files mode." default:"true"`
+	DryRun      bool   `help:"Only load payloads and output some timings."`
+	SingleFiles string `help:"Directory to put single sqlite files. One for each import payload. Fastest way to concurrently load data."`
 	columns     map[string]bool
 	lck         sync.Mutex
 }
 
-func (c *Convert) Run(kctx *kong.Context) (err error) {
-	driver, dsn, found := strings.Cut(c.DSN, ":")
-	if !found {
-		return fmt.Errorf("dns malformed")
-	}
-	db, err := sqlpro.Open(driver, dsn)
+func (c *Convert) openDb(driver, dsn string) (db *sqlpro.DB, err error) {
+	func() {
+		if db != nil && err != nil {
+			db.Close()
+		}
+		if err != nil {
+			if db != nil {
+				db.Close()
+			}
+			err = fmt.Errorf("unable to openDb %q: %w", dsn, err)
+		}
+	}()
+	db, err = sqlpro.Open(driver, dsn)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer db.Close()
 	err = db.DB().Ping()
 	if err != nil {
-		return fmt.Errorf("unable to ping db: %w", err)
+		return nil, fmt.Errorf("unable to ping db: %w", err)
 	}
-	golib.Pln("connected to db %q", c.DSN)
-
-	ctx := context.Background()
+	golib.Pln("connected to db %q", dsn)
 
 	schemaSQL = replaceSerial(string(db.Driver), schemaSQL)
-
-	err = db.ExecContext(ctx, schemaSQL)
+	err = db.Exec(schemaSQL)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	return db, nil
+}
+
+func (c *Convert) Run(kctx *kong.Context) (err error) {
+
+	ctx := context.Background()
+	var db *sqlpro.DB
+	if c.SingleFiles == "" {
+		driver, dsn, found := strings.Cut(c.DSN, ":")
+		if !found {
+			return fmt.Errorf("dns %q malformed", c.DSN)
+		}
+		db, err = c.openDb(driver, dsn)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+
+		// check column names (needed for record mode)
+		c.columns = map[string]bool{}
+		tbs, err := getTables(db)
+		if err != nil {
+			return err
+		}
+		for _, tb := range tbs {
+			if !strings.HasPrefix(tb, "k10_record") {
+				continue
+			}
+			cols, err := getColumns(db, tb)
+			if err != nil {
+				return err
+			}
+			for _, col := range cols {
+				c.columns[col] = true
+			}
+		}
+	} else {
+		// in sqlite mode, don't use records
+		c.Records = false
+		err = os.MkdirAll(c.SingleFiles, 0755)
+		if err != nil {
+			return err
+		}
 	}
 
 	cm := golib.ConcurrentManager(c.MaxParallel)
@@ -78,6 +127,12 @@ func (c *Convert) Run(kctx *kong.Context) (err error) {
 				return nil
 			})
 		}(path)
+		if err != nil {
+			return err
+		}
+		if len(cm.Errors()) > 0 {
+			return fmt.Errorf("have errors: %v", cm.Errors())
+		}
 		return nil
 	})
 	if err != nil {
@@ -126,9 +181,21 @@ func replaceSerial(driver, schemaSQL string) string {
 	return schemaSQL
 }
 
-func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) (err error) {
+func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, fp string) (err error) {
 
-	golib.Pln("importing %q...", filepath)
+	if c.SingleFiles != "" {
+		dbFile := filepath.Base(fp[0:len(fp)-len(filepath.Ext(fp))]) + ".sqlite"
+		dbFilepath := filepath.Join(c.SingleFiles, dbFile)
+		os.Remove(dbFilepath)
+		db, err = c.openDb(sqlpro.SQLITE3, dbFilepath)
+		if err != nil {
+			return fmt.Errorf("unable to open db file %q: %w", dbFilepath, err)
+		}
+		defer db.Close()
+		golib.Pln("importing %q into %q...", fp, dbFilepath)
+	} else {
+		golib.Pln("importing %q...", fp)
+	}
 	start := time.Now()
 
 	defer func() {
@@ -139,12 +206,12 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) (e
 
 	// add file to database
 	f := file{}
-	err = db.QueryContext(ctx, &f, `SELECT * FROM "k10_file" WHERE "filepath" = ?`, filepath)
+	err = db.QueryContext(ctx, &f, `SELECT * FROM "k10_file" WHERE "filepath" = ?`, fp)
 	if err != nil {
 		if err != sqlpro.ErrQueryReturnedZeroRows {
 			return err
 		}
-		f.Filepath = filepath
+		f.Filepath = fp
 		err = db.InsertContext(ctx, "k10_file", &f)
 		if err != nil {
 			return err
@@ -152,27 +219,12 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) (e
 	}
 
 	// Open the file for reading.
-	file, err := os.Open(filepath)
+	file, err := os.Open(fp)
 	if err != nil {
 		return fmt.Errorf("Error opening file: %w", err)
 	}
 	// Ensure the file is closed when we're done.
 	defer file.Close()
-
-	c.columns = map[string]bool{}
-	tbs, err := getTables(db)
-	for _, tb := range tbs {
-		if !strings.HasPrefix(tb, "k10_record") {
-			continue
-		}
-		cols, err := getColumns(db, tb)
-		if err != nil {
-			return err
-		}
-		for _, col := range cols {
-			c.columns[col] = true
-		}
-	}
 
 	// Create a new Scanner for the file.
 	scanner := bufio.NewScanner(file)
@@ -226,11 +278,22 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, filepath string) (e
 }
 
 func (c *Convert) save(ctx context.Context, db *sqlpro.DB, itm *item, f *file) (err error) {
-	if c.Records {
-		return c.saveRecord(ctx, db, itm, f)
-	} else {
-		return c.saveValues(ctx, db, itm, f)
+	if c.DryRun {
+		f.itemCount++
+		return nil
 	}
+	if c.Records {
+		err = c.saveRecord(ctx, db, itm, f)
+	} else {
+		err = c.saveValues(ctx, db, itm, f)
+	}
+	if err != nil {
+		return err
+	}
+	if f.itemCount%10_000 == 0 {
+		golib.Pln("%s: %d", f.Filepath, f.itemCount)
+	}
+	return nil
 }
 
 func (c *Convert) saveValues(ctx context.Context, db *sqlpro.DB, itm *item, f *file) (err error) {
@@ -246,9 +309,9 @@ func (c *Convert) saveValues(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 			tx.Commit()
 		}
 	}()
-	err = tx.InsertContext(ctx, "k10_item", &itm)
+	err = tx.InsertContext(ctx, "k10_item", itm)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to insert k10_item: %w", err)
 	}
 	if itm.ID == 0 {
 		panic("unable to read back item id")
@@ -273,7 +336,10 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 		if !cols[col] && len(cols) < 1580 {
 			cols[col] = true
 		}
-		rec[col] = v.Wert
+		if rec[col] != "" {
+			rec[col] += ";"
+		}
+		rec[col] += v.Wert
 	}
 
 	// make sure all columns exist
@@ -324,10 +390,6 @@ func (c *Convert) saveRecord(ctx context.Context, db *sqlpro.DB, itm *item, f *f
 		}
 	}
 	f.itemCount++
-	if f.itemCount%100 == 10_000 {
-		golib.Pln("%s: %d", f.Filepath, f.itemCount)
-	}
-	// golib.Pln("item %d -- %d values", itm.ID, len(itm.values))
 	return nil
 }
 
