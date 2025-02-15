@@ -273,7 +273,7 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, fp string) (err err
 			feld := strings.TrimSpace(parts[0])
 			for _, val := range parts[1:] {
 				if len(val) < 2 {
-					golib.Pln("%q: feld %q value: %q skipping line %q", f.Filepath, feld, val, line)
+					// ignore empty feld value
 					continue
 				}
 				itm.values = append(itm.values, &value{
