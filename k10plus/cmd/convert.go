@@ -16,15 +16,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/programmfabrik/golib"
 	"github.com/programmfabrik/sqlpro"
-
-	_ "embed"
 )
 
 const K10_ID_FELD string = "003@"
 const K10_ID_FELD_UNTERFELD string = "003@0"
-
-//go:embed initdb.sql
-var schemaSQL string
 
 const (
 	DELIMITER_OBJ = "\u001D" // Group separator (Information Separator Three)
@@ -62,36 +57,6 @@ type Convert struct {
 	lck         sync.Mutex
 }
 
-func (c *Convert) openDb(driver, dsn string) (db *sqlpro.DB, err error) {
-	func() {
-		if db != nil && err != nil {
-			db.Close()
-		}
-		if err != nil {
-			if db != nil {
-				db.Close()
-			}
-			err = fmt.Errorf("unable to openDb %q: %w", dsn, err)
-		}
-	}()
-	db, err = sqlpro.Open(driver, dsn)
-	if err != nil {
-		return nil, err
-	}
-	err = db.DB().Ping()
-	if err != nil {
-		return nil, fmt.Errorf("unable to ping db: %w", err)
-	}
-	golib.Pln("connected to db %q", dsn)
-
-	schemaSQL = replaceSerial(string(db.Driver), schemaSQL)
-	err = db.Exec(schemaSQL)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
 func (c *Convert) Run(kctx *kong.Context) (err error) {
 
 	ctx := context.Background()
@@ -101,7 +66,7 @@ func (c *Convert) Run(kctx *kong.Context) (err error) {
 		if !found {
 			return fmt.Errorf("dns %q malformed", c.DSN)
 		}
-		db, err = c.openDb(driver, dsn)
+		db, err = openDb(driver, dsn)
 		if err != nil {
 			return err
 		}
@@ -199,7 +164,7 @@ func (c *Convert) Import(ctx context.Context, db *sqlpro.DB, fp string) (err err
 			}
 		}
 
-		db, err = c.openDb(sqlpro.SQLITE3, dbFilepath)
+		db, err = openDb(sqlpro.SQLITE3, dbFilepath)
 		if err != nil {
 			return fmt.Errorf("unable to open db file %q: %w", dbFilepath, err)
 		}

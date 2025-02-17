@@ -7,6 +7,7 @@ import (
 
 var cli struct {
 	Convert cmd.Convert `cmd:"" help:"convert a k10plus files to sqlite"`
+	Merge   cmd.Merge   `cmd:"" help:"merge multiple pp.sqlite files into one"`
 }
 
 func main() {
