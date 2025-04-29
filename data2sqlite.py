@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # coding=utf8
 
 import sys
@@ -135,13 +135,13 @@ if args.mode=="easydb4":
                 eas_versions[split[0]]=[split[1]]
 
         print("eas-info: \n")
-        print("URL: " + eas_url)
-        print("Instance: " + eas_instance)
-        print("VERSIONS: " + str(eas_versions))
+        print(("URL: " + eas_url))
+        print(("Instance: " + eas_instance))
+        print(("VERSIONS: " + str(eas_versions)))
 
-    print("\nsqlite-file: %s" % sqlite_file)
-    print("PG-DSN: %s" % pg_dsn)
-    print("Schema: %s" % schema)
+    print(("\nsqlite-file: %s" % sqlite_file))
+    print(("PG-DSN: %s" % pg_dsn))
+    print(("Schema: %s" % schema))
     sys.stdout.flush()
 
     eadb_link_index = """

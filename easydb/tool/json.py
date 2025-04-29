@@ -5,7 +5,7 @@
  * https://github.com/programmfabrik/coffeescript-ui, http://www.coffeescript-ui.org
 '''
 
-import json
+from . import json
 
 class AssertError(Exception):
     def __init__(self, error_str):
@@ -27,7 +27,7 @@ def compare_json(actual, expected, variables = {}, path = None):
     if isinstance(expected, dict):
         if not isinstance(actual, dict):
             raise AssertError('{0}: expecting object'.format(path))
-        for k,v in expected.items():
+        for k,v in list(expected.items()):
             required = True
             if k[0] == '$':
                 required = False

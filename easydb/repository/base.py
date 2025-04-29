@@ -14,9 +14,7 @@ def check_open(f):
         return f(self, *args, **kwargs)
     return new_f
 
-class Repository(object):
-    __metaclass__ = abc.ABCMeta
-
+class Repository(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def open(self):
         """Open the repository"""

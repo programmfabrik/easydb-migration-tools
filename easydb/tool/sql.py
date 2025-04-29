@@ -12,7 +12,7 @@ __all__ = [
 
 def sql_select(table, columns):
     for f in ['__source_unique_id']:
-        for name, alias in columns.items():
+        for name, alias in list(columns.items()):
             if isinstance(alias, list):
                 if f in alias:
                     break
@@ -26,7 +26,7 @@ def sql_select(table, columns):
                 columns[f] = []
             columns[f].append(f)
     select_parts = []
-    for name, alias in columns.items():
+    for name, alias in list(columns.items()):
         if not isinstance(alias, list):
             alias = [alias]
         for a in alias:
@@ -34,4 +34,4 @@ def sql_select(table, columns):
     return 'select {0} from [[table:{1}]]'.format(', '.join(select_parts), table)
 
 def sql_list(l):
-    return ', '.join(map(lambda x: "'{0}'".format(x.replace("'", "''") if isinstance(x, str) else x), l))
+    return ', '.join(["'{0}'".format(x.replace("'", "''") if isinstance(x, str) else x) for x in l])

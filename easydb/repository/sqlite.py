@@ -78,8 +78,8 @@ class SQLiteRepository(Repository):
 
     def add_table(self, table_def):
         super(SQLiteRepository, self).add_table(table_def)
-        sql_parts = list(map(lambda column_def : self._table_column(column_def), table_def.columns))
-        sql_parts.extend(list(map(lambda constraint_def : self._table_constraint(constraint_def), table_def.constraints)))
+        sql_parts = list([self._table_column(column_def) for column_def in table_def.columns])
+        sql_parts.extend(list([self._table_constraint(constraint_def) for constraint_def in table_def.constraints]))
         sql = 'create table "{0}" (\n\t{1}\n)'.format(table_def.name, ',\n\t'.join(sql_parts))
         self.logger.info('create table {0}'.format(table_def.name))
         self.logger.debug('execute:{0}\n'.format(sql))
@@ -126,10 +126,10 @@ class SQLiteRepository(Repository):
         super(SQLiteRepository, self).update_row(table_name, row, condition)
         column_names = []
         column_values = []
-        for column_name, value in row.items():
+        for column_name, value in list(row.items()):
             column_names.append(column_name)
             column_values.append(value)
-        set_instructions = ',\n'.join(map(lambda x : '{} = ?'.format(quote_name(x)), column_names))
+        set_instructions = ',\n'.join(['{} = ?'.format(quote_name(x)) for x in column_names])
         sql = 'update "{}"\nset\n{}\nwhere {}'.format(table_name, set_instructions, condition)
         try:
             self.execute(sql, *column_values)
@@ -174,14 +174,14 @@ class SQLiteRowIterator(object):
         if row is None:
             raise StopIteration
         result = {}
-        for column_name in row.keys():
+        for column_name in list(row.keys()):
             result[column_name] = row[column_name]
         return result
 
     def get_rows(self):
         return self.cur.fetchall()    
 
-    def next(self):
+    def __next__(self):
         return self.__next__()
 
     def __del__(self):

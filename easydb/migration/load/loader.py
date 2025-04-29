@@ -447,7 +447,7 @@ class Loader(object):
         self.use_rput = use_rput
 
     def preload(self):
-        for objecttype, custom_loader in self.custom_nested_loaders.items():
+        for objecttype, custom_loader in list(self.custom_nested_loaders.items()):
             logger.info('[preload] {0}'.format(objecttype))
             custom_loader.preload(self)
 
@@ -467,7 +467,7 @@ class Loader(object):
             self.prepare_query__pool()
         if self.objecttype.is_hierarchical:
             self.prepare_query__parent()
-        for column_def in self.objecttype.columns.values():
+        for column_def in list(self.objecttype.columns.values()):
             if column_def.kind == 'column':
                 if column_def.column_type == 'link':
                     self.prepare_query__link(column_def)
@@ -573,7 +573,7 @@ class Loader(object):
         if self.objecttype.is_hierarchical:
             current_col += 1
             o._parent_id = rows[0]['f{0}'.format(current_col)]
-        for column_def in self.objecttype.columns.values():
+        for column_def in list(self.objecttype.columns.values()):
             if column_def.kind == 'column':
                 if column_def.column_type == 'eas':
                     continue
@@ -587,7 +587,7 @@ class Loader(object):
                     value = rows[0][self.columns.get_column(column_def.name).alias]
 
             elif column_def.kind == 'link':
-                for ot_name, ot in self.ez_schema.objecttypes.items():
+                for ot_name, ot in list(self.ez_schema.objecttypes.items()):
                     if ot_name == column_def.other_table:
                         other_ot = ot
                         break
@@ -646,14 +646,14 @@ class Loader(object):
         objects_to_push = []
         for o in objects:
             rows = db.execute(check_sql, o.source_id)
-            row = rows.next()
+            row = next(rows)
             if row['__easydb_id'] is None:
                 objects_to_push.append(o)
             else:
                 self.logger.debug('skipping object {0}:{1} because if was already pushed'.format(self.objecttype.name, o.source_id))
         if len(objects_to_push) == 0:
             return
-        for column_def in self.objecttype.columns.values():
+        for column_def in list(self.objecttype.columns.values()):
             if column_def.kind == 'column' and column_def.column_type == 'eas':
                 for o in objects:
                     asset_info = self._load_assets(db, o.source_id, column_def, self.objecttype)
@@ -692,7 +692,7 @@ class Loader(object):
                     if len(data_rows) == 0:
                         logger.error('asset not found in filestore')
                         continue
-                    data_row = data_rows.next()
+                    data_row = next(data_rows)
                     with open(self.tmp_asset_file, 'wb') as output_file:
                         output_file.write(data_row['data'])
                 elif source_type == 'url':
@@ -1028,7 +1028,7 @@ and p."__easydb_id" is null
 and c."__source_unique_id" = ?
 """.format(self.table_def.name)
                 rows = self.db.execute(sql, o.source_id)
-                row = rows.next()
+                row = next(rows)
                 if row['count'] > 0:
                     objects_pending[0] = True
                     append_object = False
@@ -1055,11 +1055,11 @@ and c."__source_unique_id" = ?
         if self.objecttype.is_hierarchical:
             current_col += 1
             o._parent_id = rows[0]['f{0}'.format(current_col)]
-        for column_def in self.objecttype.columns.values():
+        for column_def in list(self.objecttype.columns.values()):
             if column_def.kind == 'column':
                 if column_def.column_type == 'eas':
                     asset_info = self.new_loader._load_assets(self.db, o.source_id, column_def, self.objecttype)
-                    if not column_def.name in o.fields.keys():
+                    if not column_def.name in list(o.fields.keys()):
                         o.fields[column_def.name]=[]
                     if asset_info:
                         o.fields[column_def.name].append({"_id": asset_info[0][0],"preferred": asset_info[0][1]})
@@ -1090,12 +1090,12 @@ and c."__source_unique_id" = ?
                     value = rows[0][self.columns.get_column(column_def.name).alias]
                     if isinstance(value, str) and len(value) > 0:
                         value = re.sub(r'\^\\', '', value)
-                        value = re.sub('\u0015', '', value, re.UNICODE)
-                        value = re.sub('\u0005', '', value, re.UNICODE)
-                        value = re.sub('\u001a', '', value, re.UNICODE)
+                        value = re.sub('\\u0015', '', value, re.UNICODE)
+                        value = re.sub('\\u0005', '', value, re.UNICODE)
+                        value = re.sub('\\u001a', '', value, re.UNICODE)
                         value = re.sub('\f', '', value, re.UNICODE)
             elif column_def.kind == 'link':
-                for ot_name, ot in self.ez_schema.objecttypes.items():
+                for ot_name, ot in list(self.ez_schema.objecttypes.items()):
                     if ot_name == column_def.other_table:
                         other_ot = ot
                         break
@@ -1127,7 +1127,7 @@ and c."__source_unique_id" = ?
         objects_to_push = []
         for o in objects:
             rows = self.db.execute(check_sql, o.source_id)
-            row = rows.next()
+            row = next(rows)
             if row['__easydb_id'] is None:
                 objects_to_push.append(o)
             else:
@@ -1170,7 +1170,7 @@ and c."__source_unique_id" = ?
             self.prepare_query__pool()
         if self.objecttype.is_hierarchical:
             self.prepare_query__parent()
-        for column_def in self.objecttype.columns.values():
+        for column_def in list(self.objecttype.columns.values()):
             if column_def.kind == 'column':
                 if column_def.column_type == 'link':
                     self.prepare_query__link(column_def)
@@ -1246,7 +1246,7 @@ class LoaderColumns(object):
         self.columns_by_field[field].append(column)
         return column
     def select(self):
-        return ', '.join(map(lambda column : column.name_alias, self.columns))
+        return ', '.join([column.name_alias for column in self.columns])
     def get_columns(self, field):
         if field in self.columns_by_field:
             return self.columns_by_field[field]

@@ -40,7 +40,7 @@ class Pool(object):
     @staticmethod
     def from_row(row):
         pool = Pool()
-        for key, value in row.items():
+        for key, value in list(row.items()):
             if key.startswith('name:'):
                 pool.name[key.split(':')[1]] = value
             if key.startswith('description:'):

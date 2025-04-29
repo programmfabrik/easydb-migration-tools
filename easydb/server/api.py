@@ -182,7 +182,7 @@ class EasydbAPI(object):
     def create_groups(self, groups):
         if len(groups) == 0:
             return
-        js = list(map(lambda group : group.to_json(), groups))
+        js = list([group.to_json() for group in groups])
         self.logger.debug('PUSH groups:\n{0}'.format(json.dumps(js, indent=4)))
         response_objects = self.post('group', js)
         if len(response_objects) != len(groups):
@@ -194,7 +194,7 @@ class EasydbAPI(object):
     def create_users(self, users):
         if len(users) == 0:
             return
-        js = list(map(lambda user : user.to_json(), users))
+        js = list([user.to_json() for user in users])
         self.logger.debug('PUSH users:\n{0}'.format(json.dumps(js, indent=4)))
         response_objects = self.post('user', js)
         if len(response_objects) != len(users):
