@@ -1325,7 +1325,7 @@ def csv_to_source (
 
     if dialect == "detect":
         with open(filename, 'rb') as csvfile:
-            _dialect = csv.Sniffer().sniff(csvfile.read(2024))
+            _dialect = csv.Sniffer().sniff(str(csvfile.read(2024)))
         print("Notice: Detected dialect.")
     else:
         _dialect = csv.get_dialect(dialect)
@@ -1337,7 +1337,7 @@ def csv_to_source (
     # print "  quotechar   = %-6r    lineterminator   = %r" % (_dialect.quotechar, _dialect.lineterminator)
     # print "  escapechar  = %-6r" % _dialect.escapechar
 
-    csvfile = open(filename, 'rb')
+    csvfile = open(filename, 'r')
     reader = csv.reader(csvfile, _dialect)
     row_count = 0
     if columns == None:
@@ -1730,7 +1730,7 @@ def xml_to_source(
             })
 
     with open(filename) as inf:
-        p.ParseFile(inf)
+        p.Parse(inf.read(), True)
 
     # we don't right an end element here, so we don't have this in our
     # transcribed table

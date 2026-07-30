@@ -12,7 +12,6 @@ from six.moves.html_parser import HTMLParser
 import gzip
 from inspect import currentframe, getframeinfo
 
-
 import_type_array_map = {
     'tags': ('tags', 'POST'),
     'pool': ('pools', 'POST'),
@@ -1103,6 +1102,8 @@ class ObjectPayloadManager(object):
                 obj, objecttype, ref, ref_col, parent_key
             ):
                 return 0, False
+            if not obj[objecttype][parent_key].get(ref_col):
+                del obj[objecttype][parent_key]
 
         if objecttype not in self.export_objects:
             if self.verbose:
