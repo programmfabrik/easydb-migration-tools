@@ -21,7 +21,7 @@ batch_size = int(args.new_batchsize)
 if batch_size < 0:
     batch_size = 0
 if batch_size > MAX_BATCH_SIZE:
-    print("Maximum batch size is " + str(MAX_BATCH_SIZE) + "!")
+
     exit()
 
 SOURCE_FOLDER = args.sourcefolder + "/"
@@ -34,7 +34,7 @@ payloads = None
 try:
     mf = json.loads(open(os.path.abspath(
         SOURCE_FOLDER + "manifest.json")).read())
-    print("loaded manifest:", json.dumps(mf))
+
     if "source" in mf:
         source = mf["source"]
     if "payload_base_uri" in mf:
@@ -43,7 +43,7 @@ try:
         payloads = mf["payloads"]
 
 except Exception as e:
-    print("no valid manifest file found:", e)
+
 
 manifest = {
     "source": source,
@@ -57,7 +57,7 @@ new_batches = {}
 
 for subdir, dirs, files in os.walk(SOURCE_FOLDER):
     subdir_path = subdir.split('/')
-    print("sub dir", subdir)
+
 
     file_array = files if payloads is None else payloads
 
@@ -70,40 +70,36 @@ for subdir, dirs, files in os.walk(SOURCE_FOLDER):
         except:
             continue
 
-        print("\n" + str(f))
 
         try:
             pl = json.loads(open(os.path.abspath(SOURCE_FOLDER + f)).read())
 
             if "import_type" not in pl:
-                print("import_type not found, skip")
+
                 continue
             import_type = pl["import_type"]
 
             if not import_type in migration_util.import_type_array_map:
-                print("import_type", import_type, "invalid, skip")
+
                 continue
 
             array_name = migration_util.import_type_array_map[import_type]
 
-            print("import_type:", import_type)
 
             objecttype = None
             if import_type == "db":
                 if not "objecttype" in pl:
-                    print("import_type", import_type,
+
                           "requires field objecttype, skip")
                     continue
                 objecttype = pl["objecttype"]
-                print("objecttype:", objecttype)
 
-            print("array_name:", array_name)
+
 
             if not array_name in pl:
-                print("array", array_name, "not found, skip")
+
                 continue
 
-            print(len(pl[array_name]), "objects in array")
 
             if import_type not in old_batches:
                 old_batches[import_type] = {}
@@ -124,25 +120,24 @@ for subdir, dirs, files in os.walk(SOURCE_FOLDER):
                         obj)
 
         except Exception as e:
-            print(e)
 
-    print()
-    print("-----------------")
+
+
 
     for import_type in old_batches:
-        print()
-        print(import_type)
+
+
 
         if import_type not in new_batches:
             new_batches[import_type] = {}
 
         for array_name in old_batches[import_type]:
-            print(array_name)
+
             if array_name not in new_batches[import_type]:
                 new_batches[import_type][array_name] = {}
 
             for data in old_batches[import_type][array_name]:
-                print(data, len(old_batches[import_type][array_name][data]))
+
                 new_batches[import_type][array_name][data] = []
 
                 n = 0
@@ -153,8 +148,8 @@ for subdir, dirs, files in os.walk(SOURCE_FOLDER):
 
                     if current_batch_size == 0:
                         batch_name = "%s_batch_%04d_" % (data, batch_number)
-                        print(n)
-                        print(batch_number, batch_name)
+
+
                         new_batches[import_type][array_name][data].append({
                             batch_name: []
                         })
@@ -170,22 +165,21 @@ for subdir, dirs, files in os.walk(SOURCE_FOLDER):
                         current_batch_size = 0
                         batch_number += 1
 
-    print()
-    print("-----------------")
+
 
     for import_type in new_batches:
-        print()
-        print(import_type)
+
+
 
         for array_name in new_batches[import_type]:
-            print(array_name)
+
 
             for data in new_batches[import_type][array_name]:
                 for ar in new_batches[import_type][array_name][data]:
                     for key in ar:
                         if isinstance(ar[key], list):
                             if len(ar[key]) > 0:
-                                print(key, len(ar[key]))
+
                                 manifest = migration_util.save_batch(
                                     ar[key],
                                     TARGET_FOLDER,
@@ -201,4 +195,3 @@ manifest_file = open(TARGET_FOLDER + "manifest.json", 'w')
 manifest_file.write(json.dumps(manifest, indent=2))
 manifest_file.close()
 
-print("saved MANIFEST:", TARGET_FOLDER + "manifest.json")

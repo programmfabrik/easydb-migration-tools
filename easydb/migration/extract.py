@@ -63,10 +63,9 @@ def __str_to_unicode(s):
                 encoding = chardet.detect(s)['encoding']
                 return s.decode(encoding)
             except Exception as e:
-                print()
-                print("Error: __str_to_unicode: ", repr(s), "Error:", e)
+
+
                 raise e
-        # print(rec[cn])
 
 
 def __execute(cursor, sql, bindings=None):
@@ -78,11 +77,11 @@ def __execute(cursor, sql, bindings=None):
         else:
             return cursor.execute(sql)
     except Exception as e:
-        print(sql, end=' ')
+
         if bindings:
-            print(bindings)
+
         else:
-            print()
+
 
         raise e
 
@@ -92,7 +91,7 @@ def commit_source():
     if source_conn:
         source_conn.commit()
         source_conn.close()
-        print("Notice: Commited source.")
+
 
 
 # source is the output file of this script, the name source stems from the following step in the migration
@@ -119,12 +118,11 @@ def prepare_source(
 
     filename = __str_to_unicode(source)
 
-    print("""Preparing source "%s" """ % filename, file=sys.stderr)
 
     if init and init_filestore:
         try:
             os.remove(filename)
-            print("Old database removed:", filename)
+
         except:
             pass
 
@@ -133,50 +131,40 @@ def prepare_source(
     try:
         source_conn = sqlite3.connect(filename, detect_types=sqlite3.PARSE_DECLTYPES)
     except sqlite3.OperationalError as e:
-        print("Error: Unable to open sqlite file: " + filename)
+
         raise e
 
-    source_conn.execute(
-        """
+    source_conn.execute("""
         PRAGMA foreign_keys=ON
-    """
-    )
+    """)
 
-    version = source_conn.execute(
-        """
+    version = source_conn.execute("""
         SELECT sqlite_version()
-    """
-    ).fetchone()[0]
-    print("""Sqlite %s, Version: %s connected.""" % (filename, version))
+    """).fetchone()[0]
+
 
     if init:
         if not init_filestore:
             sql = source_conn.cursor()
-            row = sql.execute(
-                """
+            row = sql.execute("""
                 SELECT count(filestore_id), sum(filesize)
                 FROM filestore
-            """
-            ).fetchone()
+            """).fetchone()
 
-            print(
                 """Keeping filestore in source "%s", removing all origins. \nFilestore currently holds %s files in %s bytes."""
                 % (source, row[0], row[1])
             )
 
             # remove manually
-            sql.execute(
-                """
+            sql.execute("""
                 SELECT DISTINCT(source_name)
                 FROM origin
-            """
-            )
+            """)
             for row in sql.fetchall():
                 remove_from_source(row[0])
             sql.close()
         else:
-            source_conn.execute(
-                """
+            source_conn.execute("""
                 CREATE TABLE origin (
                     origin_id INTEGER PRIMARY KEY,
                     origin_type TEXT NOT NULL,
@@ -187,13 +175,11 @@ def prepare_source(
                     UNIQUE(origin_type, origin_database_name, origin_table_name),
                     UNIQUE(source_name, source_table_name)
                 )
-            """
-            )
+            """)
 
             # for XML
 
-            source_conn.execute(
-                """
+            source_conn.execute("""
                 CREATE TABLE IF NOT EXISTS xmldata (
                     node_id_path TEXT NOT NULL,
                     node_element_path TEXT NOT NULL,
@@ -204,8 +190,7 @@ def prepare_source(
                     node_attrs TEXT,
                     node_data TEXT
                 )
-            """
-            )
+            """)
 
             __execute(
                 source_conn,
@@ -214,32 +199,27 @@ def prepare_source(
             """,
             )
 
-            source_conn.execute(
-                """
+            source_conn.execute("""
                 CREATE TABLE IF NOT EXISTS "xmldata.transcribed" (
                     node_id_path TEXT NOT NULL,
                     node_element_path TEXT NOT NULL
                 )
-            """
-            )
+            """)
 
             # K10plus
 
             # table that stores values which belong to items
-            source_conn.execute(
-                """
+            source_conn.execute("""
                 CREATE TABLE IF NOT EXISTS k10plus_source (
                     filename TEXT NOT NULL,
                     offset INTEGER NOT NULL,
                     from_item_id INTEGER,
                     to_item_id INTEGER
                 )
-            """
-            )
+            """)
 
             # table that stores values which belong to items (pica feld and unterfeld in rows)
-            source_conn.execute(
-                """
+            source_conn.execute("""
                 CREATE TABLE IF NOT EXISTS k10plus_data (
                     id INTEGER PRIMARY KEY,
                     item_id INTEGER NOT NULL,
@@ -247,21 +227,17 @@ def prepare_source(
                     unterfeld TEXT NOT NULL,
                     wert TEXT NOT NULL
                 )
-            """
-            )
+            """)
 
-        print("Notice: Create Base Tables Sqlite Database \"%s\"" % filename)
     else:
-        print("Using existing Sqlite Database: \"%s\"" % filename)
+
 
     if init_filestore:
         if not init:
-            print("Notice: Dropping Filestore Tables", filename)
-            source_conn.execute(
-                """
+
+            source_conn.execute("""
                 PRAGMA foreign_keys=OFF
-            """
-            )
+            """)
             __execute(
                 source_conn,
                 """
@@ -274,11 +250,9 @@ def prepare_source(
                 DROP TABLE IF EXISTS "filestore"
             """,
             )
-            source_conn.execute(
-                """
+            source_conn.execute("""
                 PRAGMA foreign_keys=ON
-            """
-            )
+            """)
 
         __execute(
             source_conn,
@@ -331,7 +305,6 @@ def prepare_source(
         """,
         )
 
-        print("Notice: Created Filestore Tables:", filename)
 
 
 # remove all data from the source for a
@@ -344,11 +317,10 @@ def remove_from_source(
 ):
     global source_conn
 
-    print("\nRemoving all tables for source", name, ".", end=' ')
     if keep_filestore:
-        print("Keeping files in filestore...")
+
     else:
-        print("Removing matching files from filestore...")
+
 
     sql = source_conn.cursor()
     __execute(
@@ -366,8 +338,7 @@ def remove_from_source(
             sql,
             """
             DROP TABLE IF EXISTS "%s.%s"
-        """
-            % tntpl,
+        """ % tntpl,
         )
 
     if not keep_filestore:
@@ -535,9 +506,7 @@ def k10plus_get_offset(filename):
         SELECT offset
         FROM k10plus_source
         WHERE filename = '{source}'
-    """.format(
-            source=os.path.basename(filename)
-        ),
+    """.format(source=os.path.basename(filename)),
     )
     rows = cur.fetchall()
     cur.close()
@@ -626,7 +595,7 @@ def k10plus_to_source(
                     total_items += 1
 
                     if item_id % 1000 == 0:
-                        print('\r' + filename + '\t' + str(item_id), end=' ')
+
                         sys.stdout.flush()
 
                     continue
@@ -673,8 +642,8 @@ def k10plus_to_source(
         source_conn.commit()
 
     if item_id > 1000:
-        print()
-    print(
+
+
         filename,
         '| duration:',
         (datetime.datetime.now() - start),
